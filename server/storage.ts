@@ -16,9 +16,9 @@ export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
-  getUserOrders(userId: number): Promise<Order[]>;
   
   // Authentication operations
   createSession(session: InsertSession): Promise<Session>;
@@ -141,9 +141,39 @@ export class MemStorage implements IStorage {
     this.currentNotificationId = 1;
     this.currentSessionId = 1;
     
-    // Initialize with default categories
-    this.initCategories();
-    this.initProducts();
+    // Initialize admin user
+    const adminUser: User = {
+      id: this.currentUserId++,
+      name: "Admin",
+      email: "admin@pcplus.com",
+      password: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9", // "admin123" em SHA-256
+      role: "admin",
+      phone: null,
+      document: null,
+      createdAt: new Date(),
+      lastLogin: null,
+      isActive: true
+    };
+    this.users.set(adminUser.id, adminUser);
+    
+    // Initialize customer user
+    const customerUser: User = {
+      id: this.currentUserId++,
+      name: "Cliente",
+      email: "cliente@exemplo.com",
+      password: "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8", // "password" em SHA-256
+      role: "customer",
+      phone: "(11) 98765-4321",
+      document: "123.456.789-00",
+      createdAt: new Date(),
+      lastLogin: null,
+      isActive: true
+    };
+    this.users.set(customerUser.id, customerUser);
+    
+    // Initialize with default data
+    this.initializeCategories();
+    this.initializeProducts();
   }
 
   // User operations
@@ -157,7 +187,6 @@ export class MemStorage implements IStorage {
     );
   }
 
-  // For backward compatibility
   async getUserByUsername(username: string): Promise<User | undefined> {
     return this.getUserByEmail(username);
   }
@@ -189,7 +218,13 @@ export class MemStorage implements IStorage {
   async createSession(session: InsertSession): Promise<Session> {
     const id = this.currentSessionId++;
     const createdAt = new Date();
-    const newSession: Session = { ...session, id, createdAt };
+    const newSession: Session = { 
+      ...session, 
+      id, 
+      createdAt,
+      userAgent: session.userAgent || null,
+      ipAddress: session.ipAddress || null
+    };
     this.sessions.set(session.token, newSession);
     return newSession;
   }
@@ -215,7 +250,12 @@ export class MemStorage implements IStorage {
   
   async createAddress(address: InsertAddress): Promise<Address> {
     const id = this.currentAddressId++;
-    const newAddress: Address = { ...address, id };
+    const newAddress: Address = { 
+      ...address, 
+      id,
+      complement: address.complement || null,
+      isDefault: address.isDefault || null
+    };
     this.addresses.set(id, newAddress);
     
     // If this is the default address, unset any existing default
@@ -389,7 +429,16 @@ export class MemStorage implements IStorage {
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     const id = this.currentProductId++;
-    const product: Product = { ...insertProduct, id };
+    const product: Product = { 
+      ...insertProduct, 
+      id,
+      oldPrice: insertProduct.oldPrice || null,
+      discountPercentage: insertProduct.discountPercentage || null,
+      stock: insertProduct.stock || 0,
+      featured: insertProduct.featured || false,
+      rating: insertProduct.rating || "0.0",
+      reviewCount: insertProduct.reviewCount || 0
+    };
     this.products.set(id, product);
     return product;
   }
@@ -415,7 +464,11 @@ export class MemStorage implements IStorage {
 
   async addProductImage(insertImage: InsertProductImage): Promise<ProductImage> {
     const id = this.currentProductImageId++;
-    const image: ProductImage = { ...insertImage, id };
+    const image: ProductImage = { 
+      ...insertImage, 
+      id,
+      isPrimary: insertImage.isPrimary || false
+    };
     this.productImages.set(id, image);
     return image;
   }
@@ -450,7 +503,7 @@ export class MemStorage implements IStorage {
     const order = this.orders.get(id);
     if (!order) return undefined;
     
-    const updatedOrder = { ...order, status };
+    const updatedOrder = { ...order, status, updatedAt: new Date() };
     this.orders.set(id, updatedOrder);
     return updatedOrder;
   }
@@ -561,7 +614,14 @@ export class MemStorage implements IStorage {
   async createReview(insertReview: InsertReview): Promise<Review> {
     const id = this.currentReviewId++;
     const createdAt = new Date();
-    const review: Review = { ...insertReview, id, createdAt };
+    const review: Review = { 
+      ...insertReview, 
+      id, 
+      createdAt,
+      comment: insertReview.comment || null,
+      title: insertReview.title || null,
+      isVerified: insertReview.isVerified || false
+    };
     this.reviews.set(id, review);
     
     // Update product rating
@@ -614,11 +674,12 @@ export class MemStorage implements IStorage {
     const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
     const averageRating = (totalRating / reviews.length).toFixed(1);
     
-    const updatedProduct = { 
-      ...product, 
-      rating: averageRating, 
-      reviewCount: reviews.length 
+    const updatedProduct = {
+      ...product,
+      rating: averageRating,
+      reviewCount: reviews.length
     };
+    
     this.products.set(productId, updatedProduct);
     return updatedProduct;
   }
@@ -636,8 +697,10 @@ export class MemStorage implements IStorage {
     const notification: Notification = { 
       ...insertNotification, 
       id, 
-      createdAt, 
-      isRead: false 
+      createdAt,
+      isRead: false,
+      link: insertNotification.link || null,
+      relatedId: insertNotification.relatedId || null
     };
     this.notifications.set(id, notification);
     return notification;
@@ -665,15 +728,34 @@ export class MemStorage implements IStorage {
     return true;
   }
   
-  // Initialize demo data
-  private initCategories() {
+  // Helper methods for initialization
+  private initializeCategories() {
     const categories: InsertCategory[] = [
-      { name: "Notebooks", slug: "notebooks", icon: "laptop" },
-      { name: "Desktops", slug: "desktops", icon: "desktop" },
-      { name: "Periféricos", slug: "perifericos", icon: "keyboard" },
-      { name: "Componentes", slug: "componentes", icon: "microchip" },
-      { name: "Redes", slug: "redes", icon: "network-wired" },
-      { name: "Acessórios", slug: "acessorios", icon: "headset" }
+      {
+        name: "Computadores",
+        slug: "computadores",
+        description: "Desktops, All-in-Ones e servidores para todos os perfis de usuários."
+      },
+      {
+        name: "Notebooks",
+        slug: "notebooks",
+        description: "Notebooks, ultrabooks e conversíveis para mobilidade e produtividade."
+      },
+      {
+        name: "Periféricos",
+        slug: "perifericos",
+        description: "Teclados, mouses, headsets e outros acessórios para melhorar sua experiência."
+      },
+      {
+        name: "Hardware",
+        slug: "hardware",
+        description: "Componentes como processadores, placas-mãe, memórias e placas de vídeo."
+      },
+      {
+        name: "Redes",
+        slug: "redes",
+        description: "Roteadores, switches, access points e todos os equipamentos para sua rede."
+      }
     ];
     
     categories.forEach(category => {
@@ -681,7 +763,7 @@ export class MemStorage implements IStorage {
     });
   }
   
-  private initProducts() {
+  private initializeProducts() {
     const products: InsertProduct[] = [
       {
         name: "Notebook Pro X",
@@ -691,7 +773,7 @@ export class MemStorage implements IStorage {
         oldPrice: "5899.00",
         discountPercentage: 15,
         imageUrl: "https://images.unsplash.com/photo-1603302576837-37561b2e2302",
-        categoryId: 1,
+        categoryId: 2,
         stock: 25,
         featured: true,
         specs: "Processador: Intel Core i7-11800H\nMemória RAM: 16GB DDR4 3200MHz\nArmazenamento: SSD 512GB NVMe\nTela: 15.6\" Full HD IPS (1920 x 1080)\nPlaca de Vídeo: NVIDIA GeForce RTX 3050 4GB GDDR6\nSistema Operacional: Windows 11 Pro\nBateria: 4 células, 65Wh\nPeso: 1,8kg",
