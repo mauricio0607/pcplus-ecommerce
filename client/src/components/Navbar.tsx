@@ -179,7 +179,7 @@ export default function Navbar() {
                         <span>Lista de Desejos</span>
                       </DropdownMenuItem>
                     </Link>
-                    <Link href="/settings">
+                    <Link href="/profile">
                       <DropdownMenuItem>
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Configurações</span>
@@ -280,7 +280,7 @@ export default function Navbar() {
                     <Link href="/wishlist" className="block pl-4 py-1 text-neutral-text hover:text-primary">
                       Lista de Desejos
                     </Link>
-                    <Link href="/settings" className="block pl-4 py-1 text-neutral-text hover:text-primary">
+                    <Link href="/profile" className="block pl-4 py-1 text-neutral-text hover:text-primary">
                       Configurações
                     </Link>
                     {user.role === "admin" && (
