@@ -15,6 +15,17 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { AdminProtectedRoute } from "@/lib/admin-protected-route";
 
+// Páginas do cliente
+import AboutPage from "@/pages/AboutPage";
+import ContactPage from "@/pages/ContactPage";
+import SupportPage from "@/pages/SupportPage";
+import OrdersPage from "@/pages/OrdersPage";
+import WishlistPage from "@/pages/WishlistPage";
+import PolicyPage from "@/pages/PolicyPage";
+import PaymentMethodsPage from "@/pages/PaymentMethodsPage";
+import ShippingPage from "@/pages/ShippingPage";
+import ReturnsPage from "@/pages/ReturnsPage";
+
 // Admin pages
 import Dashboard from "@/pages/admin/Dashboard";
 import Products from "@/pages/admin/Products";
@@ -49,6 +60,21 @@ function Router() {
       <ProtectedRoute path="/checkout" component={Checkout} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <Route path="/auth" component={AuthPage} />
+      
+      {/* Páginas de informação */}
+      <Route path="/about" component={AboutPage} />
+      <Route path="/contact" component={ContactPage} />
+      <Route path="/support" component={SupportPage} />
+      <Route path="/privacy" component={PolicyPage} />
+      <Route path="/terms" component={PolicyPage} />
+      <Route path="/payment" component={PaymentMethodsPage} />
+      <Route path="/shipping" component={ShippingPage} />
+      <Route path="/returns" component={ReturnsPage} />
+      
+      {/* Páginas protegidas do usuário */}
+      <ProtectedRoute path="/orders" component={OrdersPage} />
+      <ProtectedRoute path="/wishlist" component={WishlistPage} />
+      
       <Route component={NotFound} />
     </Switch>
   );

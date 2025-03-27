@@ -85,6 +85,14 @@ export default function Settings() {
                     <Mail className="h-4 w-4 mr-2" />
                     Email
                   </TabsTrigger>
+                  <TabsTrigger value="menu" className="w-full justify-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="3" y1="12" x2="21" y2="12"></line>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                    Menus
+                  </TabsTrigger>
                   <TabsTrigger value="advanced" className="w-full justify-start">
                     <GlobeIcon className="h-4 w-4 mr-2" />
                     Avançado
@@ -626,6 +634,218 @@ export default function Settings() {
                   </CardContent>
                   <CardFooter className="flex justify-end space-x-2">
                     <Button variant="outline">Cancelar</Button>
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                          Salvando...
+                        </>
+                      ) : (
+                        <>
+                          <SaveIcon className="mr-2 h-4 w-4" /> 
+                          Salvar Alterações
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="menu" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configurações de Menu</CardTitle>
+                    <CardDescription>
+                      Configure os itens do menu de navegação do site
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Menu Principal</h3>
+                      <div className="space-y-3 border rounded-md p-4">
+                        <div className="flex items-center justify-between border-b pb-3">
+                          <div className="font-medium">Início</div>
+                          <div className="flex items-center space-x-2">
+                            <Switch id="menu-home-visible" defaultChecked />
+                            <Button variant="outline" size="sm" className="h-7 px-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 6L6 18"></path>
+                                <path d="M6 6l12 12"></path>
+                              </svg>
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between border-b pb-3">
+                          <div className="font-medium">Categorias</div>
+                          <div className="flex items-center space-x-2">
+                            <Switch id="menu-categories-visible" defaultChecked />
+                            <Button variant="outline" size="sm" className="h-7 px-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 6L6 18"></path>
+                                <path d="M6 6l12 12"></path>
+                              </svg>
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between border-b pb-3">
+                          <div className="font-medium">Ofertas</div>
+                          <div className="flex items-center space-x-2">
+                            <Switch id="menu-offers-visible" defaultChecked />
+                            <Button variant="outline" size="sm" className="h-7 px-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 6L6 18"></path>
+                                <path d="M6 6l12 12"></path>
+                              </svg>
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between border-b pb-3">
+                          <div className="font-medium">Suporte</div>
+                          <div className="flex items-center space-x-2">
+                            <Switch id="menu-support-visible" defaultChecked />
+                            <Button variant="outline" size="sm" className="h-7 px-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 6L6 18"></path>
+                                <path d="M6 6l12 12"></path>
+                              </svg>
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium">Contato</div>
+                          <div className="flex items-center space-x-2">
+                            <Switch id="menu-contact-visible" defaultChecked />
+                            <Button variant="outline" size="sm" className="h-7 px-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 6L6 18"></path>
+                                <path d="M6 6l12 12"></path>
+                              </svg>
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <Button className="w-full">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                          </svg>
+                          Adicionar Item
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Menu do Rodapé</h3>
+                      <div className="space-y-4">
+                        <div className="border rounded-md p-4">
+                          <h4 className="font-medium mb-3 text-sm text-muted-foreground">Informações</h4>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between border-b pb-3">
+                              <div className="font-medium">Sobre Nós</div>
+                              <div className="flex items-center space-x-2">
+                                <Switch id="footer-about-visible" defaultChecked />
+                                <Button variant="outline" size="sm" className="h-7 px-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6l12 12"></path>
+                                  </svg>
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between border-b pb-3">
+                              <div className="font-medium">Política de Privacidade</div>
+                              <div className="flex items-center space-x-2">
+                                <Switch id="footer-privacy-visible" defaultChecked />
+                                <Button variant="outline" size="sm" className="h-7 px-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6l12 12"></path>
+                                  </svg>
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between border-b pb-3">
+                              <div className="font-medium">Termos e Condições</div>
+                              <div className="flex items-center space-x-2">
+                                <Switch id="footer-terms-visible" defaultChecked />
+                                <Button variant="outline" size="sm" className="h-7 px-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6l12 12"></path>
+                                  </svg>
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between border-b pb-3">
+                              <div className="font-medium">Formas de Pagamento</div>
+                              <div className="flex items-center space-x-2">
+                                <Switch id="footer-payment-visible" defaultChecked />
+                                <Button variant="outline" size="sm" className="h-7 px-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6l12 12"></path>
+                                  </svg>
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between border-b pb-3">
+                              <div className="font-medium">Entregas e Frete</div>
+                              <div className="flex items-center space-x-2">
+                                <Switch id="footer-shipping-visible" defaultChecked />
+                                <Button variant="outline" size="sm" className="h-7 px-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6l12 12"></path>
+                                  </svg>
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium">Trocas e Devoluções</div>
+                              <div className="flex items-center space-x-2">
+                                <Switch id="footer-returns-visible" defaultChecked />
+                                <Button variant="outline" size="sm" className="h-7 px-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6l12 12"></path>
+                                  </svg>
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <Button className="w-full">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                              </svg>
+                              Adicionar Item
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Button variant="outline" className="w-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="12" y1="5" x2="12" y2="19"></line>
+                              <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Adicionar Nova Seção
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-end space-x-2">
+                    <Button variant="outline">Resetar Padrões</Button>
                     <Button onClick={handleSaveChanges} disabled={isSaving}>
                       {isSaving ? (
                         <>
