@@ -297,3 +297,52 @@ export const insertSessionSchema = createInsertSchema(sessions).pick({
 
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type Session = typeof sessions.$inferSelect;
+
+// Tabela de configurações do site
+export const siteSettings = pgTable("site_settings", {
+  id: serial("id").primaryKey(),
+  siteName: text("site_name").notNull().default("PC+ Informática"),
+  siteUrl: text("site_url").notNull().default("https://pcplus.com.br"),
+  siteDescription: text("site_description").notNull().default("Loja de Informática e Tecnologia"),
+  siteLogo: text("site_logo"),
+  siteFavicon: text("site_favicon"),
+  contactEmail: text("contact_email").notNull().default("contato@pcplus.com.br"),
+  contactPhone: text("contact_phone").notNull().default("(62) 3333-4444"),
+  contactAddress: text("contact_address"),
+  socialFacebook: text("social_facebook"),
+  socialInstagram: text("social_instagram"),
+  socialTwitter: text("social_twitter"),
+  socialWhatsapp: text("social_whatsapp"),
+  metaKeywords: text("meta_keywords"),
+  metaDescription: text("meta_description"),
+  headerScripts: text("header_scripts"),
+  footerScripts: text("footer_scripts"),
+  customCss: text("custom_css"),
+  enableMaintenance: boolean("enable_maintenance").default(false),
+  enableDebug: boolean("enable_debug").default(false),
+  cacheEnabled: boolean("cache_enabled").default(true),
+  cacheTtl: integer("cache_ttl").default(3600),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSiteSettingsSchema = createInsertSchema(siteSettings);
+export type InsertSiteSettings = z.infer<typeof insertSiteSettingsSchema>;
+export type SiteSettings = typeof siteSettings.$inferSelect;
+
+// Tabela de itens de menu
+export const menuItems = pgTable("menu_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  position: integer("position").default(0),
+  parentId: integer("parent_id"),
+  isVisible: boolean("is_visible").default(true),
+  openInNewTab: boolean("open_in_new_tab").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMenuItemSchema = createInsertSchema(menuItems);
+export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
+export type MenuItem = typeof menuItems.$inferSelect;

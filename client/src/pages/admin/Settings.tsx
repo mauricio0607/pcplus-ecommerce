@@ -42,15 +42,68 @@ import {
 export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   
-  const handleSaveChanges = (e: React.FormEvent) => {
+  const [toast, setToast] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  
+  const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setToast(null);
     
-    // Simulação de requisição
-    setTimeout(() => {
+    try {
+      // Coletar dados do formulário
+      const formElements = e.target as HTMLFormElement;
+      
+      // Dados gerais
+      const siteName = (formElements.querySelector('#site-name') as HTMLInputElement)?.value;
+      const siteUrl = (formElements.querySelector('#site-url') as HTMLInputElement)?.value;
+      const siteDescription = (formElements.querySelector('#site-description') as HTMLTextAreaElement)?.value;
+      const contactEmail = (formElements.querySelector('#contact-email') as HTMLInputElement)?.value;
+      const contactPhone = (formElements.querySelector('#contact-phone') as HTMLInputElement)?.value;
+      
+      // Obter valores de switches
+      const inventoryTracking = (formElements.querySelector('#inventory-tracking') as HTMLInputElement)?.checked;
+      const allowReviews = (formElements.querySelector('#allow-reviews') as HTMLInputElement)?.checked;
+      const maintenanceMode = (formElements.querySelector('#maintenance-mode') as HTMLInputElement)?.checked;
+      const debugMode = (formElements.querySelector('#debug-mode') as HTMLInputElement)?.checked;
+      
+      // Criando objeto de configurações para enviar para a API
+      const settings = {
+        siteName,
+        siteUrl,
+        siteDescription,
+        contactEmail,
+        contactPhone,
+        enableMaintenance: maintenanceMode,
+        enableDebug: debugMode
+      };
+      
+      // Enviar configurações para a API
+      const response = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(settings)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar configurações. Tente novamente.');
+      }
+      
+      setToast({
+        type: 'success',
+        message: 'Configurações salvas com sucesso!'
+      });
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      setToast({
+        type: 'error',
+        message: (error as Error).message || 'Erro ao salvar configurações. Tente novamente.'
+      });
+    } finally {
       setIsSaving(false);
-      // Aqui você adicionaria lógica para salvar as configurações
-    }, 1000);
+    }
   };
 
   return (

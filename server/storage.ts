@@ -9,7 +9,9 @@ import {
   wishlistItems, type WishlistItem, type InsertWishlistItem,
   reviews, type Review, type InsertReview,
   notifications, type Notification, type InsertNotification,
-  sessions, type Session, type InsertSession
+  sessions, type Session, type InsertSession,
+  siteSettings, type SiteSettings, type InsertSiteSettings,
+  menuItems, type MenuItem, type InsertMenuItem
 } from "@shared/schema";
 
 import type { Store } from 'express-session';
@@ -94,6 +96,15 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number): Promise<boolean>;
   markAllNotificationsAsRead(userId: number): Promise<boolean>;
+  
+  // Site Settings operations
+  getSiteSettings(): Promise<SiteSettings | null>;
+  updateSiteSettings(settings: Partial<SiteSettings>): Promise<SiteSettings | null>;
+  resetSiteSettings(): Promise<SiteSettings | null>;
+  
+  // Menu Items operations
+  getMenuItems(): Promise<MenuItem[]>;
+  updateMenuItems(items: MenuItem[]): Promise<boolean>;
 }
 
 import session from "express-session";
@@ -1680,8 +1691,218 @@ export class DatabaseStorage implements IStorage {
     );
     return rowCount > 0;
   }
+  
+  // Site Settings
+  async getSiteSettings(): Promise<SiteSettings | null> {
+    const result = await this.pool.query('SELECT * FROM site_settings ORDER BY id ASC LIMIT 1');
+    return result.rows[0] || null;
+  }
+  
+  async updateSiteSettings(settings: Partial<SiteSettings>): Promise<SiteSettings | null> {
+    // Verificar se já existe uma configuração
+    const existingSettings = await this.getSiteSettings();
+    
+    if (!existingSettings) {
+      // Criar nova configuração
+      const columns = Object.keys(settings).join(', ');
+      const placeholders = Object.keys(settings).map((_, i) => `$${i + 1}`).join(', ');
+      const values = Object.values(settings);
+      
+      const result = await this.pool.query(
+        `INSERT INTO site_settings (${columns}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
+      
+      return result.rows[0];
+    } else {
+      // Atualizar configuração existente
+      const setClause = Object.keys(settings)
+        .map((key, i) => `${key} = $${i + 2}`)
+        .join(', ');
+      
+      const values = [...Object.values(settings), existingSettings.id];
+      
+      const result = await this.pool.query(
+        `UPDATE site_settings SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [existingSettings.id, ...Object.values(settings)]
+      );
+      
+      return result.rows[0];
+    }
+  }
+  
+  async resetSiteSettings(): Promise<SiteSettings | null> {
+    const existingSettings = await this.getSiteSettings();
+    
+    if (!existingSettings) {
+      return null;
+    }
+    
+    // Resetar para valores padrão
+    const result = await this.pool.query(
+      `UPDATE site_settings SET 
+        site_name = 'PC+ Informática',
+        site_url = 'https://pcplus.com.br',
+        site_description = 'Loja de Informática e Tecnologia',
+        contact_email = 'contato@pcplus.com.br',
+        contact_phone = '(62) 3333-4444',
+        enable_maintenance = FALSE,
+        enable_debug = FALSE,
+        cache_enabled = TRUE,
+        cache_ttl = 3600,
+        updated_at = NOW()
+      WHERE id = $1 RETURNING *`,
+      [existingSettings.id]
+    );
+    
+    return result.rows[0];
+  }
+  
+  // Menu Items
+  async getMenuItems(): Promise<MenuItem[]> {
+    const result = await this.pool.query('SELECT * FROM menu_items ORDER BY position ASC');
+    return result.rows;
+  }
+  
+  async updateMenuItems(items: MenuItem[]): Promise<boolean> {
+    // Iniciar uma transação
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Limpar todos os itens de menu
+      await client.query('DELETE FROM menu_items');
+      
+      // Inserir os novos itens
+      for (const item of items) {
+        const {
+          name,
+          url,
+          position,
+          parentId,
+          isVisible,
+          openInNewTab
+        } = item;
+        
+        await client.query(
+          `INSERT INTO menu_items (
+            name, url, position, parent_id, is_visible, open_in_new_tab
+          ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [name, url, position, parentId, isVisible, openInNewTab]
+        );
+      }
+      
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error updating menu items:', error);
+      return false;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 // Use DatabaseStorage instead of MemStorage
 // Temporariamente usando MemStorage enquanto resolvemos os problemas de conexão com o banco
 export const storage = new MemStorage();
+
+// Implementação MemStorage dos métodos para configurações do site
+MemStorage.prototype.getSiteSettings = async function(): Promise<SiteSettings | null> {
+  const defaultSettings: SiteSettings = {
+    id: 1,
+    siteName: "PC+ Informática",
+    siteUrl: "https://pcplus.com.br",
+    siteDescription: "Loja de Informática e Tecnologia",
+    siteLogo: null,
+    siteFavicon: null,
+    contactEmail: "contato@pcplus.com.br",
+    contactPhone: "(62) 3333-4444",
+    contactAddress: null,
+    socialFacebook: null,
+    socialInstagram: null,
+    socialTwitter: null,
+    socialWhatsapp: null,
+    metaKeywords: null,
+    metaDescription: null,
+    headerScripts: null,
+    footerScripts: null,
+    customCss: null,
+    enableMaintenance: false,
+    enableDebug: false,
+    cacheEnabled: true,
+    cacheTtl: 3600,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  
+  return defaultSettings;
+};
+
+MemStorage.prototype.updateSiteSettings = async function(settings: Partial<SiteSettings>): Promise<SiteSettings | null> {
+  const existingSettings = await this.getSiteSettings();
+  if (!existingSettings) return null;
+  
+  const updatedSettings = { ...existingSettings, ...settings, updatedAt: new Date() };
+  return updatedSettings;
+};
+
+MemStorage.prototype.resetSiteSettings = async function(): Promise<SiteSettings | null> {
+  return this.getSiteSettings();
+};
+
+// Implementação MemStorage dos métodos para itens de menu
+MemStorage.prototype.getMenuItems = async function(): Promise<MenuItem[]> {
+  return [
+    {
+      id: 1,
+      name: "Home",
+      url: "/",
+      position: 0,
+      parentId: null,
+      isVisible: true,
+      openInNewTab: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: 2,
+      name: "Produtos",
+      url: "/produtos",
+      position: 1,
+      parentId: null,
+      isVisible: true,
+      openInNewTab: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: 3,
+      name: "Sobre",
+      url: "/sobre",
+      position: 2,
+      parentId: null,
+      isVisible: true,
+      openInNewTab: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: 4,
+      name: "Contato",
+      url: "/contato",
+      position: 3,
+      parentId: null,
+      isVisible: true,
+      openInNewTab: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ];
+};
+
+MemStorage.prototype.updateMenuItems = async function(items: MenuItem[]): Promise<boolean> {
+  return true;
+};

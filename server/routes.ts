@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { registerShippingRoutes } from "./shipping";
+import { registerAdminRoutes } from "./admin";
 import { 
   insertOrderSchema, 
   insertOrderItemSchema, 
@@ -1030,6 +1031,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Registrar rotas de cálculo de frete
   registerShippingRoutes(app);
+  
+  // Registrar rotas administrativas
+  registerAdminRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;
