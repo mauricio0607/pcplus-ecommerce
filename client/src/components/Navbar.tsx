@@ -46,7 +46,7 @@ export default function Navbar() {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center">
-              <span className="text-primary font-bold text-2xl">TechStore</span>
+              <span className="text-primary font-bold text-2xl">PC+</span>
             </Link>
 
             {/* Desktop Navigation */}

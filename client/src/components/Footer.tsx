@@ -2,11 +2,11 @@ import { Link } from "wouter";
 
 export default function Footer() {
   return (
-    <footer className="bg-neutral-text py-12 text-white">
+    <footer className="bg-gray-800 py-12 text-white">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <div className="text-primary font-bold text-2xl mb-4">TechStore</div>
+            <div className="text-primary font-bold text-2xl mb-4">PC+</div>
             <p className="text-white/80 mb-4">
               Sua loja de informática completa com os melhores preços e atendimento de qualidade.
             </p>
@@ -75,7 +75,7 @@ export default function Footer() {
                   <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                   <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                 </svg>
-                <span className="text-white/80">contato@techstore.com.br</span>
+                <span className="text-white/80">contato@pcplus.com.br</span>
               </li>
               <li className="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-primary" viewBox="0 0 20 20" fill="currentColor">
@@ -87,7 +87,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="border-t border-white/20 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-white/80 mb-4 md:mb-0">© {new Date().getFullYear()} TechStore. Todos os direitos reservados.</p>
+          <p className="text-white/80 mb-4 md:mb-0">© {new Date().getFullYear()} PC+. Todos os direitos reservados.</p>
           <div className="flex space-x-4">
             <img 
               src="https://www.mercadopago.com/org-img/Manual/ManualMP/imgs/selo_mp.png" 
