@@ -25,12 +25,12 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const { user, isLoading, loginMutation, registerMutation } = useAuth();
-  
+
   // If user is already logged in, redirect to home page
   if (user) {
     return <Redirect to="/" />;
   }
-  
+
   // Setup login form
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -39,7 +39,7 @@ export default function AuthPage() {
       password: "",
     },
   });
-  
+
   // Setup register form
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -52,32 +52,34 @@ export default function AuthPage() {
       document: "",
     },
   });
-  
+
   // Handle login form submission
   const onLoginSubmit = (data: LoginFormValues) => {
     loginMutation.mutate(data);
   };
-  
+
   // Handle register form submission
   const onRegisterSubmit = (data: RegisterFormValues) => {
     registerMutation.mutate(data);
   };
-  
+
   return (
     <div className="flex items-stretch min-h-screen">
       <div className="flex flex-col justify-center p-8 w-full md:w-1/2">
         <div className="mx-auto space-y-6 w-full max-w-md">
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold">Tech Store</h1>
-            <p className="text-muted-foreground">Entre ou crie uma conta para continuar</p>
+            <h1 className="text-3xl font-bold">Pc Mais</h1>
+            <p className="text-muted-foreground">
+              Entre ou crie uma conta para continuar
+            </p>
           </div>
-          
+
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Registrar</TabsTrigger>
             </TabsList>
-            
+
             {/* Login Tab */}
             <TabsContent value="login">
               <Card>
@@ -97,7 +99,7 @@ export default function AuthPage() {
                         </AlertDescription>
                       </Alert>
                     )}
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="email">E-mail</Label>
                       <Input
@@ -112,11 +114,14 @@ export default function AuthPage() {
                         </p>
                       )}
                     </div>
-                    
+
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="password">Senha</Label>
-                        <a href="#" className="text-sm text-orange-500 hover:underline">
+                        <a
+                          href="#"
+                          className="text-sm text-orange-500 hover:underline"
+                        >
                           Esqueceu a senha?
                         </a>
                       </div>
@@ -134,7 +139,11 @@ export default function AuthPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={loginMutation.isPending}
+                    >
                       {loginMutation.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -148,7 +157,7 @@ export default function AuthPage() {
                 </form>
               </Card>
             </TabsContent>
-            
+
             {/* Register Tab */}
             <TabsContent value="register">
               <Card>
@@ -168,7 +177,7 @@ export default function AuthPage() {
                         </AlertDescription>
                       </Alert>
                     )}
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="name">Nome completo</Label>
                       <Input
@@ -182,7 +191,7 @@ export default function AuthPage() {
                         </p>
                       )}
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="email">E-mail</Label>
                       <Input
@@ -197,7 +206,7 @@ export default function AuthPage() {
                         </p>
                       )}
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="phone">Telefone</Label>
@@ -212,7 +221,7 @@ export default function AuthPage() {
                           </p>
                         )}
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="document">CPF</Label>
                         <Input
@@ -227,7 +236,7 @@ export default function AuthPage() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="password">Senha</Label>
                       <Input
@@ -242,7 +251,7 @@ export default function AuthPage() {
                         </p>
                       )}
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="confirmPassword">Confirmar senha</Label>
                       <Input
@@ -253,13 +262,20 @@ export default function AuthPage() {
                       />
                       {registerForm.formState.errors.confirmPassword && (
                         <p className="text-sm text-red-500">
-                          {registerForm.formState.errors.confirmPassword.message}
+                          {
+                            registerForm.formState.errors.confirmPassword
+                              .message
+                          }
                         </p>
                       )}
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={registerMutation.isPending}
+                    >
                       {registerMutation.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -276,14 +292,15 @@ export default function AuthPage() {
           </Tabs>
         </div>
       </div>
-      
+
       {/* Hero Section */}
       <div className="hidden md:flex md:w-1/2 bg-orange-500">
         <div className="flex flex-col justify-center items-center text-white p-8 w-full">
           <div className="max-w-md space-y-6 text-center">
-            <h2 className="text-4xl font-bold">Bem-vindo à Tech Store</h2>
+            <h2 className="text-4xl font-bold">Bem-vindo à Pc Mais</h2>
             <p className="text-xl">
-              A melhor loja de informática do Brasil, com os melhores preços e condições.
+              A melhor loja de informática do Brasil, com os melhores preços e
+              condições.
             </p>
             <div className="space-y-4">
               <div className="flex items-center space-x-3">

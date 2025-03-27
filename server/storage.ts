@@ -885,7 +885,8 @@ export class MemStorage implements IStorage {
   }
 }
 
-import { Pool } from '@neondatabase/serverless';
+import pkg from 'pg';
+const { Pool } = pkg;
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 
@@ -1805,9 +1806,8 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Use DatabaseStorage instead of MemStorage
-// Temporariamente usando MemStorage enquanto resolvemos os problemas de conexão com o banco
-export const storage = new MemStorage();
+// Usar DatabaseStorage para persistência real dos dados
+export const storage = new DatabaseStorage();
 
 // Implementação MemStorage dos métodos para configurações do site
 MemStorage.prototype.getSiteSettings = async function(): Promise<SiteSettings | null> {
