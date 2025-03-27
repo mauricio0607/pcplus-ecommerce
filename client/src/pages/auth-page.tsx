@@ -88,6 +88,9 @@ export default function AuthPage() {
                     <CardTitle>Login</CardTitle>
                     <CardDescription>
                       Entre com seu e-mail e senha para acessar sua conta.
+                      <div className="mt-2 text-orange-600 font-medium">
+                        Usuário admin: admin@pcplus.com.br / Senha: admin123
+                      </div>
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
