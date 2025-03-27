@@ -1,22 +1,7 @@
 export const SHIPPING_METHODS = [
-  {
-    id: "express",
-    name: "Entrega Expressa",
-    price: 29.90,
-    days: "até 3 dias úteis"
-  },
-  {
-    id: "normal",
-    name: "Entrega Normal",
-    price: 19.90,
-    days: "até 7 dias úteis"
-  },
-  {
-    id: "economic",
-    name: "Entrega Econômica",
-    price: 9.90,
-    days: "até 12 dias úteis"
-  }
+  { id: "economic", name: "Entrega Econômica", icon: "truck", price: 20, estimatedDays: "6 a 10 dias úteis" },
+  { id: "standard", name: "Entrega Padrão", icon: "truck", price: 30, estimatedDays: "3 a 6 dias úteis" },
+  { id: "express", name: "Entrega Expressa", icon: "zap", price: 50, estimatedDays: "1 a 2 dias úteis" }
 ];
 
 export const BRAZILIAN_STATES = [
@@ -52,8 +37,8 @@ export const BRAZILIAN_STATES = [
 export const PIX_DISCOUNT_PERCENTAGE = 5;
 
 export const PAYMENT_METHODS = {
-  PIX: "pix",
   CREDIT_CARD: "credit_card",
+  PIX: "pix",
   BOLETO: "boleto"
 };
 

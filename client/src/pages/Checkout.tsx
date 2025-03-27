@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { SHIPPING_METHODS, BRAZILIAN_STATES, PIX_DISCOUNT_PERCENTAGE, PAYMENT_METHODS, DEFAULT_ORDER_NUMBER } from "@/lib/constants";
 import { generatePixPayment, formatCreditCardNumber, formatExpiryDate, formatCVV } from "@/lib/mercadopago";
@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 // Form schema for customer information
 const customerSchema = z.object({
@@ -34,6 +35,13 @@ const customerSchema = z.object({
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
 
+// Interface para as opções de frete
+interface ShippingOption {
+  name: string;
+  price: number;
+  estimatedDays: string;
+}
+
 export default function Checkout() {
   const { cartItems, getCartTotal, clearCart } = useCart();
   const [, navigate] = useLocation();
@@ -42,10 +50,15 @@ export default function Checkout() {
   const [orderId, setOrderId] = useState<number | null>(null);
   const [pixData, setPixData] = useState<any>(null);
   
+  // Estados para o cálculo de frete
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<ShippingOption | null>(null);
+  
   // Calculate totals
   const subtotal = getCartTotal();
   const [selectedShippingMethod, setSelectedShippingMethod] = useState(SHIPPING_METHODS[0]);
-  const shippingCost = selectedShippingMethod.price;
+  const shippingCost = selectedOption?.price || 0;
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(PAYMENT_METHODS.PIX);
   
   // Calculate discount if PIX payment method is selected
@@ -79,6 +92,16 @@ export default function Checkout() {
       paymentMethod: selectedPaymentMethod,
     },
   });
+  
+  // Atualizar frete quando o usuário preencher o CEP
+  useEffect(() => {
+    const zipCode = form.watch("zipCode");
+    const state = form.watch("state");
+    
+    if (zipCode && zipCode.length === 8 && state) {
+      calculateShippingOptions(state);
+    }
+  }, [form.watch("zipCode"), form.watch("state")]);
 
   // Handle shipping method change
   const handleShippingMethodChange = (methodId: string) => {
@@ -207,9 +230,60 @@ export default function Checkout() {
         form.setValue("neighborhood", data.bairro);
         form.setValue("city", data.localidade);
         form.setValue("state", data.uf);
+        
+        // Calculate shipping options based on state
+        calculateShippingOptions(data.uf);
       }
     } catch (error) {
       console.error("Error fetching ZIP code:", error);
+    }
+  };
+  
+  // Calculate shipping options based on location
+  const calculateShippingOptions = async (state: string) => {
+    if (!state || cartItems.length === 0) return;
+    
+    setIsLoadingShipping(true);
+    
+    try {
+      // Prepare request data
+      const requestData = {
+        items: cartItems.map(item => ({
+          productId: item.id,
+          quantity: item.quantity
+        })),
+        postalCode: form.getValues("zipCode"),
+        state: state,
+        total: subtotal
+      };
+      
+      // Call API to calculate shipping
+      const response = await apiRequest("POST", "/api/shipping/calculate", requestData);
+      const data = await response.json();
+      
+      if (data.options && data.options.length > 0) {
+        setShippingOptions(data.options);
+        
+        // Auto-select the standard option (middle option)
+        const standardOption = data.options.find((option: ShippingOption) => 
+          option.name === "Entrega Padrão"
+        ) || data.options[0];
+        
+        setSelectedOption(standardOption);
+        
+        // Update form shipping method
+        handleShippingMethodChange(standardOption.name === "Entrega Econômica" ? "economic" :
+                                  standardOption.name === "Entrega Expressa" ? "express" : "standard");
+      }
+    } catch (error) {
+      console.error("Error calculating shipping:", error);
+      toast({
+        title: "Erro ao calcular frete",
+        description: "Não foi possível calcular as opções de frete. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingShipping(false);
     }
   };
 
@@ -314,7 +388,7 @@ export default function Checkout() {
                         <span>Frete estimado:</span>
                         <span>{formatCurrency(selectedShippingMethod.price)}</span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">Cálculo final na próxima etapa.</p>
+                      <p className="text-sm text-gray-600 mt-1">Tempo de entrega: {selectedShippingMethod.estimatedDays}</p>
                     </div>
                   </>
                 )}
@@ -551,42 +625,144 @@ export default function Checkout() {
                     
                     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                       <h2 className="text-xl font-semibold mb-4">Opções de Envio</h2>
-                      <FormField
-                        control={form.control}
-                        name="shippingMethod"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={(value) => {
-                                  field.onChange(value);
-                                  handleShippingMethodChange(value);
-                                }}
-                                defaultValue={field.value}
-                                className="space-y-4"
-                              >
-                                {SHIPPING_METHODS.map((method) => (
-                                  <div key={method.id} className="flex items-start p-4 border border-gray-200 rounded-md hover:border-primary cursor-pointer">
-                                    <RadioGroupItem 
-                                      value={method.id} 
-                                      id={method.id} 
-                                      className="mt-1 mr-3" 
-                                    />
-                                    <Label htmlFor={method.id} className="flex-1 cursor-pointer">
-                                      <div className="flex items-center">
-                                        <span className="font-medium">{method.name}</span>
-                                        <span className="ml-auto font-semibold">{formatCurrency(method.price)}</span>
+                      
+                      {form.watch("zipCode") && form.watch("zipCode").length === 8 ? (
+                        isLoadingShipping ? (
+                          <div className="flex items-center justify-center p-6">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+                            <p>Calculando frete...</p>
+                          </div>
+                        ) : (
+                          shippingOptions.length > 0 ? (
+                            <FormField
+                              control={form.control}
+                              name="shippingMethod"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <RadioGroup
+                                      onValueChange={(value) => {
+                                        field.onChange(value);
+                                        handleShippingMethodChange(value);
+                                        
+                                        // Atualizar a opção de frete selecionada
+                                        const option = shippingOptions.find(opt => 
+                                          opt.name === (value === "economic" ? "Entrega Econômica" : 
+                                                       value === "express" ? "Entrega Expressa" : "Entrega Padrão")
+                                        );
+                                        if (option) {
+                                          setSelectedOption(option);
+                                        }
+                                      }}
+                                      defaultValue={field.value}
+                                      className="space-y-4"
+                                    >
+                                      {shippingOptions.map((option, index) => (
+                                        <div key={index} className="flex items-start p-4 border border-gray-200 rounded-md hover:border-primary cursor-pointer">
+                                          <RadioGroupItem 
+                                            value={option.name === "Entrega Econômica" ? "economic" :
+                                                 option.name === "Entrega Expressa" ? "express" : "standard"} 
+                                            id={`shipping-${index}`} 
+                                            className="mt-1 mr-3" 
+                                          />
+                                          <Label htmlFor={`shipping-${index}`} className="flex-1 cursor-pointer">
+                                            <div className="flex items-center">
+                                              <span className="font-medium">{option.name}</span>
+                                              <span className="ml-auto font-semibold">{formatCurrency(option.price)}</span>
+                                            </div>
+                                            <p className="text-sm text-gray-600">Receba em {option.estimatedDays}</p>
+                                          </Label>
+                                        </div>
+                                      ))}
+                                    </RadioGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          ) : (
+                            <div className="p-4 border border-gray-200 rounded-md bg-gray-50">
+                              <FormField
+                                control={form.control}
+                                name="shippingMethod"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <RadioGroup
+                                        onValueChange={(value) => {
+                                          field.onChange(value);
+                                          handleShippingMethodChange(value);
+                                        }}
+                                        defaultValue={field.value}
+                                        className="space-y-4"
+                                      >
+                                        {SHIPPING_METHODS.map((method) => (
+                                          <div key={method.id} className="flex items-start p-4 border border-gray-200 rounded-md hover:border-primary cursor-pointer bg-white">
+                                            <RadioGroupItem 
+                                              value={method.id} 
+                                              id={method.id} 
+                                              className="mt-1 mr-3" 
+                                            />
+                                            <Label htmlFor={method.id} className="flex-1 cursor-pointer">
+                                              <div className="flex items-center">
+                                                <span className="font-medium">{method.name}</span>
+                                                <span className="ml-auto font-semibold">{formatCurrency(method.price)}</span>
+                                              </div>
+                                              <p className="text-sm text-gray-600">Receba em {method.estimatedDays}</p>
+                                            </Label>
+                                          </div>
+                                        ))}
+                                      </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <p className="mt-4 text-sm text-gray-500 italic">* Valores de frete estimados. Para um cálculo mais preciso, preencha seu CEP acima.</p>
+                            </div>
+                          )
+                        )
+                      ) : (
+                        <div className="p-4 border border-gray-200 rounded-md bg-gray-50">
+                          <p className="text-center mb-4">Digite seu CEP no formulário acima para calcular o frete</p>
+                          <FormField
+                            control={form.control}
+                            name="shippingMethod"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <RadioGroup
+                                    onValueChange={(value) => {
+                                      field.onChange(value);
+                                      handleShippingMethodChange(value);
+                                    }}
+                                    defaultValue={field.value}
+                                    className="space-y-4"
+                                  >
+                                    {SHIPPING_METHODS.map((method) => (
+                                      <div key={method.id} className="flex items-start p-4 border border-gray-200 rounded-md hover:border-primary cursor-pointer bg-white">
+                                        <RadioGroupItem 
+                                          value={method.id} 
+                                          id={method.id} 
+                                          className="mt-1 mr-3" 
+                                        />
+                                        <Label htmlFor={method.id} className="flex-1 cursor-pointer">
+                                          <div className="flex items-center">
+                                            <span className="font-medium">{method.name}</span>
+                                            <span className="ml-auto font-semibold">{formatCurrency(method.price)}</span>
+                                          </div>
+                                          <p className="text-sm text-gray-600">Receba em {method.estimatedDays}</p>
+                                        </Label>
                                       </div>
-                                      <p className="text-sm text-gray-600">Receba em {method.days}</p>
-                                    </Label>
-                                  </div>
-                                ))}
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                                    ))}
+                                  </RadioGroup>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
