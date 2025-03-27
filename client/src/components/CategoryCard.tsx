@@ -84,12 +84,12 @@ export default function CategoryCard({ category }: CategoryCardProps) {
 
   return (
     <Link href={`/?category=${category.slug}`}>
-      <a className="flex flex-col items-center p-4 rounded-lg bg-white shadow-md hover:shadow-lg transition">
+      <div className="flex flex-col items-center p-4 rounded-lg bg-white shadow-md hover:shadow-lg transition cursor-pointer">
         <div className="w-16 h-16 flex items-center justify-center bg-primary/10 rounded-full mb-3">
           {getIconComponent(category.icon)}
         </div>
         <span className="text-center font-medium">{category.name}</span>
-      </a>
+      </div>
     </Link>
   );
 }
