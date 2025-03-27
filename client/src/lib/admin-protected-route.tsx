@@ -21,7 +21,16 @@ export function AdminProtectedRoute({
     );
   }
 
-  if (!user || user.role !== "admin") {
+  if (!user) {
+    return (
+      <Route path={path}>
+        <Redirect to="/auth" />
+      </Route>
+    );
+  }
+
+  // Verifica se o usuário é um administrador
+  if (user.role !== "admin") {
     return (
       <Route path={path}>
         <Redirect to="/" />

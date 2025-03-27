@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,8 +12,29 @@ import Footer from "@/components/Footer";
 import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { AdminProtectedRoute } from "@/lib/admin-protected-route";
+
+// Admin pages
+import Dashboard from "@/pages/admin/Dashboard";
+import Products from "@/pages/admin/Products";
+import Categories from "@/pages/admin/Categories";
 
 function Router() {
+  const [location] = useLocation();
+  const isAdminRoute = location.startsWith("/admin");
+
+  // Se for uma rota de admin, não renderiza o layout normal
+  if (isAdminRoute) {
+    return (
+      <Switch>
+        <AdminProtectedRoute path="/admin" component={Dashboard} />
+        <AdminProtectedRoute path="/admin/products" component={Products} />
+        <AdminProtectedRoute path="/admin/categories" component={Categories} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -26,16 +47,19 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  const isAdminRoute = location.startsWith("/admin");
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CartProvider>
           <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="flex-grow">
+            {!isAdminRoute && <Navbar />}
+            <main className={`${!isAdminRoute ? "flex-grow" : "h-screen"}`}>
               <Router />
             </main>
-            <Footer />
+            {!isAdminRoute && <Footer />}
           </div>
           <Toaster />
         </CartProvider>

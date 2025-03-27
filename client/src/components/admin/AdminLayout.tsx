@@ -1,20 +1,27 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { 
   LayoutDashboard, 
   Package, 
-  ShoppingCart, 
+  ShoppingBag, 
   Users, 
-  Tag, 
   Settings, 
+  Tags, 
   LogOut,
-  ChevronRight,
   Menu,
-  X
+  Bell,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -22,105 +29,163 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children, title }: AdminLayoutProps) {
-  const { user, logoutMutation } = useAuth();
   const [location] = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logoutMutation } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const menus = [
-    { title: "Dashboard", link: "/admin", icon: <LayoutDashboard className="h-5 w-5" /> },
-    { title: "Produtos", link: "/admin/products", icon: <Package className="h-5 w-5" /> },
-    { title: "Categorias", link: "/admin/categories", icon: <Tag className="h-5 w-5" /> },
-    { title: "Pedidos", link: "/admin/orders", icon: <ShoppingCart className="h-5 w-5" /> },
-    { title: "Usuários", link: "/admin/users", icon: <Users className="h-5 w-5" /> },
-    { title: "Configurações", link: "/admin/settings", icon: <Settings className="h-5 w-5" /> },
-  ];
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+  const handleLogout = () => {
+    logoutMutation.mutate();
   };
 
-  if (!user) return null;
+  const sidebarItems = [
+    {
+      label: "Dashboard",
+      href: "/admin",
+      icon: <LayoutDashboard className="h-5 w-5" />,
+    },
+    {
+      label: "Produtos",
+      href: "/admin/products",
+      icon: <Package className="h-5 w-5" />,
+    },
+    {
+      label: "Categorias",
+      href: "/admin/categories",
+      icon: <Tags className="h-5 w-5" />,
+    },
+    {
+      label: "Pedidos",
+      href: "/admin/orders",
+      icon: <ShoppingBag className="h-5 w-5" />,
+    },
+    {
+      label: "Usuários",
+      href: "/admin/users",
+      icon: <Users className="h-5 w-5" />,
+    },
+    {
+      label: "Configurações",
+      href: "/admin/settings",
+      icon: <Settings className="h-5 w-5" />,
+    },
+  ];
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar para desktop */}
-      <aside className={`bg-gray-800 text-white w-64 fixed inset-y-0 left-0 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out z-30 md:z-auto`}>
-        <div className="p-6 flex items-center justify-between">
-          <Link href="/admin" className="text-xl font-bold text-primary flex items-center">
-            PC+ Admin
-          </Link>
-          <button className="md:hidden" onClick={toggleSidebar}>
-            <X className="h-5 w-5 text-white" />
-          </button>
-        </div>
-        
-        <nav className="mt-6 px-4">
-          <div className="space-y-1">
-            {menus.map((item, index) => (
-              <Link
-                key={index}
-                href={item.link}
-                className={`flex items-center px-4 py-3 transition-colors rounded-lg ${location === item.link ? 'bg-gray-700 text-white' : 'hover:bg-gray-700 text-gray-300'}`}
-              >
-                {item.icon}
-                <span className="ml-3">{item.title}</span>
-                {location === item.link && <ChevronRight className="ml-auto h-4 w-4" />}
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar para Desktop */}
+      <aside 
+        className={`bg-white border-r border-gray-200 z-20 fixed inset-y-0 left-0 transform ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:relative md:translate-x-0 transition duration-200 ease-in-out`}
+        style={{ width: "250px" }}
+      >
+        <div className="h-full flex flex-col">
+          <div className="flex items-center h-16 px-4 border-b">
+            <Link href="/">
+              <a className="flex items-center space-x-2">
+                <span className="font-bold text-xl text-primary">PC+</span>
+                <span className="font-bold text-xl">Admin</span>
+              </a>
+            </Link>
+          </div>
+          
+          <nav className="space-y-1 px-2 py-4 flex-1 overflow-y-auto">
+            {sidebarItems.map((item) => (
+              <Link key={item.href} href={item.href}>
+                <a
+                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
+                    location === item.href
+                      ? "bg-primary text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {item.icon}
+                  <span className="ml-3">{item.label}</span>
+                </a>
               </Link>
             ))}
-          </div>
-
-          <div className="mt-10 pt-6 border-t border-gray-700">
-            <Button
-              variant="ghost"
-              className="w-full text-left text-gray-300 hover:bg-gray-700 hover:text-white px-4 py-3"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
+          </nav>
+          
+          <div className="p-4 border-t">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-left"
+              onClick={handleLogout}
             >
-              <LogOut className="h-5 w-5 mr-3" />
-              <span>
-                {logoutMutation.isPending ? "Saindo..." : "Sair"}
-              </span>
+              <LogOut className="h-5 w-5 mr-2" />
+              Sair
             </Button>
           </div>
-        </nav>
+        </div>
       </aside>
 
-      {/* Overlay para fechar o menu em dispositivos móveis */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-20 bg-black bg-opacity-50 md:hidden"
-          onClick={toggleSidebar}
-        ></div>
-      )}
-
-      {/* Conteúdo principal */}
-      <div className="flex-1 md:ml-64">
-        <header className="bg-white shadow h-16 flex items-center px-6">
-          <button
-            className="md:hidden mr-4"
-            onClick={toggleSidebar}
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-          
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold text-gray-800">{title}</h1>
-          </div>
-          
-          <div className="flex items-center">
-            <div className="mr-4 text-sm text-gray-600 hidden md:block">
-              <div>{user.name}</div>
-              <div className="text-xs text-gray-500">Administrador</div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200">
+          <div className="flex items-center justify-between h-16 px-4">
+            <div className="flex items-center">
+              <button
+                type="button"
+                className="md:hidden p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <h1 className="text-xl font-semibold ml-2 md:ml-0">{title}</h1>
             </div>
-            <Avatar className="h-8 w-8 bg-primary text-white">
-              <AvatarFallback>
-                {user.name.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            
+            <div className="flex items-center space-x-4">
+              <button className="relative p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-full">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
+              </button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center text-sm px-3 py-1 rounded-full hover:bg-gray-100">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white mr-2">
+                      {user?.name?.charAt(0) || "U"}
+                    </div>
+                    <span className="font-medium text-gray-700 hidden sm:inline-block">
+                      {user?.name || "Usuário"}
+                    </span>
+                    <ChevronDown className="ml-1 h-4 w-4 text-gray-500" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="flex items-center justify-start p-2">
+                    <div className="flex flex-col space-y-0.5">
+                      <p className="text-sm font-medium">{user?.name || "Usuário"}</p>
+                      <p className="text-xs text-gray-500 truncate">{user?.email || ""}</p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile">
+                        <a className="cursor-pointer">Meu Perfil</a>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/settings">
+                        <a className="cursor-pointer">Configurações</a>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
-        
-        <main className="p-6 overflow-auto" style={{ height: "calc(100vh - 4rem)" }}>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
           {children}
         </main>
       </div>
