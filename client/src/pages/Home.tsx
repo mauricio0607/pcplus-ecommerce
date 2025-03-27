@@ -3,13 +3,25 @@ import CategoryCard from "@/components/CategoryCard";
 import ProductCard from "@/components/ProductCard";
 import { Product, Category } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { toast } = useToast();
+  const [location] = useLocation();
+  
+  // Parse query parameters from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const categoryParam = params.get("category");
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [location]);
   
   // Get categories
   const {
@@ -20,13 +32,15 @@ export default function Home() {
     queryKey: ['/api/categories'],
   });
 
-  // Get featured products
+  // Get products by category or featured products
   const {
-    data: featuredProducts,
+    data: products,
     isLoading: productsLoading,
     error: productsError
   } = useQuery<Product[]>({ 
-    queryKey: ['/api/products/featured'],
+    queryKey: selectedCategory 
+      ? [`/api/categories/${selectedCategory}/products`] 
+      : ['/api/products/featured'],
   });
 
   const handleSubscribe = (e: React.FormEvent) => {
@@ -43,6 +57,11 @@ export default function Home() {
       window.location.href = `/?search=${encodeURIComponent(searchQuery)}`;
     }
   };
+  
+  // Get the selected category name
+  const selectedCategoryName = selectedCategory 
+    ? categories?.find(cat => cat.slug === selectedCategory)?.name 
+    : null;
 
   return (
     <div className="pb-16">
@@ -89,9 +108,28 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* Products Section */}
       <section id="products" className="container mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold mb-6">Ofertas em Destaque</h2>
+        <h2 className="text-2xl font-bold mb-6">
+          {selectedCategoryName 
+            ? `Produtos em ${selectedCategoryName}` 
+            : "Ofertas em Destaque"}
+        </h2>
+        
+        {selectedCategory && (
+          <div className="mb-4">
+            <Button 
+              variant="outline" 
+              className="text-sm" 
+              onClick={() => {
+                window.location.href = "/";
+              }}
+            >
+              ← Voltar para Todos os Produtos
+            </Button>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {productsLoading ? (
             Array(4).fill(0).map((_, index) => (
@@ -99,18 +137,22 @@ export default function Home() {
             ))
           ) : productsError ? (
             <p className="col-span-full text-center text-red-500">Erro ao carregar produtos</p>
+          ) : products?.length === 0 ? (
+            <p className="col-span-full text-center text-gray-500">Nenhum produto encontrado nesta categoria</p>
           ) : (
-            featuredProducts?.map((product) => (
+            products?.map((product: Product) => (
               <ProductCard key={product.id} product={product} />
             ))
           )}
         </div>
         
-        <div className="mt-8 text-center">
-          <Button variant="outline" className="border-primary text-primary hover:bg-neutral-50">
-            Ver Mais Produtos
-          </Button>
-        </div>
+        {!selectedCategory && (
+          <div className="mt-8 text-center">
+            <Button variant="outline" className="border-primary text-primary hover:bg-neutral-50">
+              Ver Mais Produtos
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* Advantages */}

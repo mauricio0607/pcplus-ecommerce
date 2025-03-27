@@ -51,8 +51,8 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link href={`/product/${product.slug}`}>
-      <a 
-        className="bg-white rounded-lg shadow-md hover:shadow-lg transition overflow-hidden group block"
+      <div 
+        className="bg-white rounded-lg shadow-md hover:shadow-lg transition overflow-hidden group block cursor-pointer"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -124,7 +124,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             </span>
           </div>
         </div>
-      </a>
+      </div>
     </Link>
   );
 }
