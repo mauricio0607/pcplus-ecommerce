@@ -4,14 +4,26 @@ import {
   categories, type Category, type InsertCategory,
   orders, type Order, type InsertOrder,
   orderItems, type OrderItem, type InsertOrderItem,
-  productImages, type ProductImage, type InsertProductImage
+  productImages, type ProductImage, type InsertProductImage,
+  addresses, type Address, type InsertAddress,
+  wishlistItems, type WishlistItem, type InsertWishlistItem,
+  reviews, type Review, type InsertReview,
+  notifications, type Notification, type InsertNotification,
+  sessions, type Session, type InsertSession
 } from "@shared/schema";
 
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
+  getUserOrders(userId: number): Promise<Order[]>;
+  
+  // Authentication operations
+  createSession(session: InsertSession): Promise<Session>;
+  getSessionByToken(token: string): Promise<Session | undefined>;
+  deleteSession(token: string): Promise<boolean>;
   
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -25,6 +37,13 @@ export interface IStorage {
   getProductsByCategory(categoryId: number): Promise<Product[]>;
   getFeaturedProducts(): Promise<Product[]>;
   searchProducts(query: string): Promise<Product[]>;
+  searchProductsAdvanced(params: {
+    query?: string;
+    categoryId?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    sort?: string;
+  }): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProductStock(id: number, stockChange: number): Promise<Product | undefined>;
   
@@ -37,10 +56,39 @@ export interface IStorage {
   getOrder(id: number): Promise<Order | undefined>;
   updateOrderStatus(id: number, status: string): Promise<Order | undefined>;
   updateOrderPaymentStatus(id: number, paymentId: string, paymentStatus: string): Promise<Order | undefined>;
+  updateOrderTracking(id: number, trackingCode: string, trackingUrl: string): Promise<Order | undefined>;
+  getUserOrders(userId: number): Promise<Order[]>;
   
   // Order items operations
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
   getOrderItems(orderId: number): Promise<OrderItem[]>;
+  
+  // Address operations
+  getUserAddresses(userId: number): Promise<Address[]>;
+  getAddress(id: number): Promise<Address | undefined>;
+  createAddress(address: InsertAddress): Promise<Address>;
+  updateAddress(id: number, addressData: Partial<InsertAddress>): Promise<Address | undefined>;
+  deleteAddress(id: number): Promise<boolean>;
+  setDefaultAddress(userId: number, addressId: number): Promise<boolean>;
+  
+  // Wishlist operations
+  getUserWishlist(userId: number): Promise<WishlistItem[]>;
+  addToWishlist(item: InsertWishlistItem): Promise<WishlistItem>;
+  removeFromWishlist(userId: number, productId: number): Promise<boolean>;
+  isInWishlist(userId: number, productId: number): Promise<boolean>;
+  
+  // Review operations
+  getProductReviews(productId: number): Promise<Review[]>;
+  createReview(review: InsertReview): Promise<Review>;
+  getUserReviews(userId: number): Promise<Review[]>;
+  canReviewProduct(userId: number, productId: number): Promise<boolean>;
+  updateProductRating(productId: number): Promise<Product | undefined>;
+  
+  // Notification operations
+  getUserNotifications(userId: number): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<boolean>;
+  markAllNotificationsAsRead(userId: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -50,6 +98,11 @@ export class MemStorage implements IStorage {
   private productImages: Map<number, ProductImage>;
   private orders: Map<number, Order>;
   private orderItems: Map<number, OrderItem>;
+  private addresses: Map<number, Address>;
+  private wishlistItems: Map<number, WishlistItem>;
+  private reviews: Map<number, Review>;
+  private notifications: Map<number, Notification>;
+  private sessions: Map<string, Session>;
   
   private currentUserId: number;
   private currentCategoryId: number;
@@ -57,6 +110,11 @@ export class MemStorage implements IStorage {
   private currentProductImageId: number;
   private currentOrderId: number;
   private currentOrderItemId: number;
+  private currentAddressId: number;
+  private currentWishlistItemId: number;
+  private currentReviewId: number;
+  private currentNotificationId: number;
+  private currentSessionId: number;
 
   constructor() {
     this.users = new Map();
@@ -65,6 +123,11 @@ export class MemStorage implements IStorage {
     this.productImages = new Map();
     this.orders = new Map();
     this.orderItems = new Map();
+    this.addresses = new Map();
+    this.wishlistItems = new Map();
+    this.reviews = new Map();
+    this.notifications = new Map();
+    this.sessions = new Map();
     
     this.currentUserId = 1;
     this.currentCategoryId = 1;
@@ -72,6 +135,11 @@ export class MemStorage implements IStorage {
     this.currentProductImageId = 1;
     this.currentOrderId = 1;
     this.currentOrderItemId = 1;
+    this.currentAddressId = 1;
+    this.currentWishlistItemId = 1;
+    this.currentReviewId = 1;
+    this.currentNotificationId = 1;
+    this.currentSessionId = 1;
     
     // Initialize with default categories
     this.initCategories();
@@ -83,17 +151,185 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+      (user) => user.email === email,
     );
+  }
+
+  // For backward compatibility
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return this.getUserByEmail(username);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const createdAt = new Date();
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      createdAt, 
+      lastLogin: null, 
+      isActive: true 
+    };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updatedUser = { ...user, ...userData };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  // Authentication operations
+  async createSession(session: InsertSession): Promise<Session> {
+    const id = this.currentSessionId++;
+    const createdAt = new Date();
+    const newSession: Session = { ...session, id, createdAt };
+    this.sessions.set(session.token, newSession);
+    return newSession;
+  }
+  
+  async getSessionByToken(token: string): Promise<Session | undefined> {
+    return this.sessions.get(token);
+  }
+  
+  async deleteSession(token: string): Promise<boolean> {
+    return this.sessions.delete(token);
+  }
+  
+  // Address operations
+  async getUserAddresses(userId: number): Promise<Address[]> {
+    return Array.from(this.addresses.values()).filter(
+      (address) => address.userId === userId
+    );
+  }
+  
+  async getAddress(id: number): Promise<Address | undefined> {
+    return this.addresses.get(id);
+  }
+  
+  async createAddress(address: InsertAddress): Promise<Address> {
+    const id = this.currentAddressId++;
+    const newAddress: Address = { ...address, id };
+    this.addresses.set(id, newAddress);
+    
+    // If this is the default address, unset any existing default
+    if (address.isDefault) {
+      await this.setDefaultAddress(address.userId, id);
+    }
+    
+    return newAddress;
+  }
+  
+  async updateAddress(id: number, addressData: Partial<InsertAddress>): Promise<Address | undefined> {
+    const address = this.addresses.get(id);
+    if (!address) return undefined;
+    
+    const updatedAddress = { ...address, ...addressData };
+    this.addresses.set(id, updatedAddress);
+    
+    // If updated to be default, unset any existing default
+    if (addressData.isDefault) {
+      await this.setDefaultAddress(address.userId, id);
+    }
+    
+    return updatedAddress;
+  }
+  
+  async deleteAddress(id: number): Promise<boolean> {
+    return this.addresses.delete(id);
+  }
+  
+  async setDefaultAddress(userId: number, addressId: number): Promise<boolean> {
+    // First, unset all default addresses for this user
+    const userAddresses = await this.getUserAddresses(userId);
+    for (const address of userAddresses) {
+      if (address.id !== addressId && address.isDefault) {
+        const updatedAddress = { ...address, isDefault: false };
+        this.addresses.set(address.id, updatedAddress);
+      }
+    }
+    
+    // Set the specified address as default
+    const address = this.addresses.get(addressId);
+    if (!address) return false;
+    
+    const updatedAddress = { ...address, isDefault: true };
+    this.addresses.set(addressId, updatedAddress);
+    return true;
+  }
+  
+  // Advanced product search
+  async searchProductsAdvanced(params: {
+    query?: string;
+    categoryId?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    sort?: string;
+  }): Promise<Product[]> {
+    let products = Array.from(this.products.values());
+    
+    // Filter by query
+    if (params.query) {
+      const lowercaseQuery = params.query.toLowerCase();
+      products = products.filter(
+        (product) => 
+          product.name.toLowerCase().includes(lowercaseQuery) ||
+          product.description.toLowerCase().includes(lowercaseQuery)
+      );
+    }
+    
+    // Filter by category
+    if (params.categoryId) {
+      products = products.filter(
+        (product) => product.categoryId === params.categoryId
+      );
+    }
+    
+    // Filter by price range
+    if (params.minPrice !== undefined) {
+      products = products.filter(
+        (product) => parseFloat(product.price) >= params.minPrice!
+      );
+    }
+    
+    if (params.maxPrice !== undefined) {
+      products = products.filter(
+        (product) => parseFloat(product.price) <= params.maxPrice!
+      );
+    }
+    
+    // Sort results
+    if (params.sort) {
+      switch (params.sort) {
+        case 'price_asc':
+          products.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+          break;
+        case 'price_desc':
+          products.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+          break;
+        case 'name_asc':
+          products.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case 'name_desc':
+          products.sort((a, b) => b.name.localeCompare(a.name));
+          break;
+        case 'rating_desc':
+          products.sort((a, b) => (parseFloat(b.rating || "0") - parseFloat(a.rating || "0")));
+          break;
+        case 'newest':
+          // In a real DB we would have a createdAt field, but here we'll use the ID as a proxy
+          products.sort((a, b) => b.id - a.id);
+          break;
+      }
+    }
+    
+    return products;
   }
   
   // Category operations
@@ -187,7 +423,21 @@ export class MemStorage implements IStorage {
   // Order operations
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     const id = this.currentOrderId++;
-    const order: Order = { ...insertOrder, id };
+    const createdAt = new Date();
+    const order: Order = { 
+      ...insertOrder, 
+      id,
+      createdAt,
+      updatedAt: null,
+      status: insertOrder.status || "pending",
+      userId: insertOrder.userId || null,
+      paymentId: insertOrder.paymentId || null,
+      paymentStatus: insertOrder.paymentStatus || "pending",
+      trackingCode: insertOrder.trackingCode || null,
+      trackingUrl: insertOrder.trackingUrl || null,
+      notes: insertOrder.notes || null,
+      invoiceUrl: insertOrder.invoiceUrl || null
+    };
     this.orders.set(id, order);
     return order;
   }
@@ -216,10 +466,35 @@ export class MemStorage implements IStorage {
     const updatedOrder = { 
       ...order, 
       paymentId, 
-      paymentStatus 
+      paymentStatus,
+      updatedAt: new Date() 
     };
     this.orders.set(id, updatedOrder);
     return updatedOrder;
+  }
+
+  async updateOrderTracking(
+    id: number, 
+    trackingCode: string, 
+    trackingUrl: string
+  ): Promise<Order | undefined> {
+    const order = this.orders.get(id);
+    if (!order) return undefined;
+    
+    const updatedOrder = { 
+      ...order, 
+      trackingCode, 
+      trackingUrl,
+      updatedAt: new Date() 
+    };
+    this.orders.set(id, updatedOrder);
+    return updatedOrder;
+  }
+
+  async getUserOrders(userId: number): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      (order) => order.userId === userId
+    );
   }
   
   // Order items operations
@@ -234,6 +509,160 @@ export class MemStorage implements IStorage {
     return Array.from(this.orderItems.values()).filter(
       (item) => item.orderId === orderId
     );
+  }
+  
+  // Wishlist operations
+  async getUserWishlist(userId: number): Promise<WishlistItem[]> {
+    return Array.from(this.wishlistItems.values()).filter(
+      (item) => item.userId === userId
+    );
+  }
+  
+  async addToWishlist(item: InsertWishlistItem): Promise<WishlistItem> {
+    // Check if already exists
+    const existingItem = Array.from(this.wishlistItems.values()).find(
+      (wishlistItem) => wishlistItem.userId === item.userId && wishlistItem.productId === item.productId
+    );
+    
+    if (existingItem) {
+      return existingItem;
+    }
+    
+    const id = this.currentWishlistItemId++;
+    const addedAt = new Date();
+    const wishlistItem: WishlistItem = { ...item, id, addedAt };
+    this.wishlistItems.set(id, wishlistItem);
+    return wishlistItem;
+  }
+  
+  async removeFromWishlist(userId: number, productId: number): Promise<boolean> {
+    const item = Array.from(this.wishlistItems.values()).find(
+      (wishlistItem) => wishlistItem.userId === userId && wishlistItem.productId === productId
+    );
+    
+    if (!item) return false;
+    
+    return this.wishlistItems.delete(item.id);
+  }
+  
+  async isInWishlist(userId: number, productId: number): Promise<boolean> {
+    return Array.from(this.wishlistItems.values()).some(
+      (wishlistItem) => wishlistItem.userId === userId && wishlistItem.productId === productId
+    );
+  }
+  
+  // Review operations
+  async getProductReviews(productId: number): Promise<Review[]> {
+    return Array.from(this.reviews.values()).filter(
+      (review) => review.productId === productId
+    );
+  }
+  
+  async createReview(insertReview: InsertReview): Promise<Review> {
+    const id = this.currentReviewId++;
+    const createdAt = new Date();
+    const review: Review = { ...insertReview, id, createdAt };
+    this.reviews.set(id, review);
+    
+    // Update product rating
+    await this.updateProductRating(insertReview.productId);
+    
+    return review;
+  }
+  
+  async getUserReviews(userId: number): Promise<Review[]> {
+    return Array.from(this.reviews.values()).filter(
+      (review) => review.userId === userId
+    );
+  }
+  
+  async canReviewProduct(userId: number, productId: number): Promise<boolean> {
+    // Check if the user has ordered this product
+    const orders = await this.getUserOrders(userId);
+    
+    for (const order of orders) {
+      const orderItems = await this.getOrderItems(order.id);
+      if (orderItems.some(item => item.productId === productId)) {
+        // Check if user has already reviewed this product
+        const existingReview = Array.from(this.reviews.values()).find(
+          (review) => review.userId === userId && review.productId === productId
+        );
+        
+        return existingReview === undefined;
+      }
+    }
+    
+    return false;
+  }
+  
+  async updateProductRating(productId: number): Promise<Product | undefined> {
+    const product = this.products.get(productId);
+    if (!product) return undefined;
+    
+    const reviews = await this.getProductReviews(productId);
+    if (reviews.length === 0) {
+      const updatedProduct = { 
+        ...product, 
+        rating: "0.0", 
+        reviewCount: 0 
+      };
+      this.products.set(productId, updatedProduct);
+      return updatedProduct;
+    }
+    
+    // Calculate average rating
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const averageRating = (totalRating / reviews.length).toFixed(1);
+    
+    const updatedProduct = { 
+      ...product, 
+      rating: averageRating, 
+      reviewCount: reviews.length 
+    };
+    this.products.set(productId, updatedProduct);
+    return updatedProduct;
+  }
+  
+  // Notification operations
+  async getUserNotifications(userId: number): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter((notification) => notification.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const id = this.currentNotificationId++;
+    const createdAt = new Date();
+    const notification: Notification = { 
+      ...insertNotification, 
+      id, 
+      createdAt, 
+      isRead: false 
+    };
+    this.notifications.set(id, notification);
+    return notification;
+  }
+  
+  async markNotificationAsRead(id: number): Promise<boolean> {
+    const notification = this.notifications.get(id);
+    if (!notification) return false;
+    
+    const updatedNotification = { ...notification, isRead: true };
+    this.notifications.set(id, updatedNotification);
+    return true;
+  }
+  
+  async markAllNotificationsAsRead(userId: number): Promise<boolean> {
+    const userNotifications = await this.getUserNotifications(userId);
+    
+    for (const notification of userNotifications) {
+      if (!notification.isRead) {
+        const updatedNotification = { ...notification, isRead: true };
+        this.notifications.set(notification.id, updatedNotification);
+      }
+    }
+    
+    return true;
   }
   
   // Initialize demo data

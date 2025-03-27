@@ -1,10 +1,19 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
+import { 
+  insertOrderSchema, 
+  insertOrderItemSchema, 
+  insertUserSchema, 
+  insertAddressSchema, 
+  insertReviewSchema, 
+  insertWishlistItemSchema 
+} from "@shared/schema";
 import { z } from "zod";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 // Initialize Mercado Pago SDK
 import mercadopago from "mercadopago";
@@ -16,8 +25,647 @@ if (MERCADO_PAGO_ACCESS_TOKEN) {
   });
 }
 
+// JWT secret (in a real app, use an environment variable for this)
+const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-key-here";
+
+// Authentication middleware
+const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    // Verify token by checking in the storage
+    const session = await storage.getSessionByToken(token);
+    if (!session || session.expiresAt < new Date()) {
+      if (session) {
+        // Token expired, delete it
+        await storage.deleteSession(token);
+      }
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+
+    // Add user to request
+    const user = await storage.getUser(session.userId);
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Add user to request object
+    (req as any).user = user;
+    
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return res.status(500).json({ message: 'Authentication error' });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoints
+
+  // Auth routes
+  
+  // Register a new user
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const { email, password, name, phone, document } = req.body;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "E-mail já está em uso" });
+      }
+      
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      
+      // Create user
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword,
+        name,
+        phone: phone || null,
+        document: document || null,
+        role: "customer"
+      });
+      
+      // Create session token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days token
+      
+      await storage.createSession({
+        userId: user.id,
+        token,
+        expiresAt,
+        userAgent: req.headers["user-agent"] || null,
+        ipAddress: req.ip || null
+      });
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = user;
+      
+      return res.status(201).json({
+        user: userWithoutPassword,
+        token
+      });
+    } catch (error) {
+      console.error("Error registering user:", error);
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      return res.status(500).json({ message: "Falha ao registrar usuário" });
+    }
+  });
+  
+  // Login
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      
+      // Find user
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(400).json({ message: "Credenciais inválidas" });
+      }
+      
+      // Check password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Credenciais inválidas" });
+      }
+      
+      // Create session token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days token
+      
+      await storage.createSession({
+        userId: user.id,
+        token,
+        expiresAt,
+        userAgent: req.headers["user-agent"] || null,
+        ipAddress: req.ip || null
+      });
+      
+      // Update last login time
+      const updatedUser = await storage.updateUser(user.id, { 
+        lastLogin: new Date() 
+      });
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = updatedUser || user;
+      
+      return res.json({
+        user: userWithoutPassword,
+        token
+      });
+    } catch (error) {
+      console.error("Error logging in:", error);
+      return res.status(500).json({ message: "Falha ao fazer login" });
+    }
+  });
+  
+  // Logout
+  app.post("/api/auth/logout", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.split(' ')[1];
+      
+      if (token) {
+        await storage.deleteSession(token);
+      }
+      
+      return res.json({ message: "Logout realizado com sucesso" });
+    } catch (error) {
+      console.error("Error logging out:", error);
+      return res.status(500).json({ message: "Falha ao fazer logout" });
+    }
+  });
+  
+  // Get current user profile
+  app.get("/api/user/profile", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Return user data without password
+      const { password, ...userWithoutPassword } = user;
+      
+      return res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return res.status(500).json({ message: "Falha ao buscar perfil" });
+    }
+  });
+  
+  // Update user profile
+  app.put("/api/user/profile", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      const { name, phone, document } = req.body;
+      
+      // Update user
+      const updatedUser = await storage.updateUser(user.id, {
+        name: name || user.name,
+        phone: phone || user.phone,
+        document: document || user.document
+      });
+      
+      // Return user data without password
+      const { password, ...userWithoutPassword } = updatedUser || user;
+      
+      return res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      return res.status(500).json({ message: "Falha ao atualizar perfil" });
+    }
+  });
+  
+  // Change password
+  app.post("/api/user/change-password", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      const { currentPassword, newPassword } = req.body;
+      
+      // Check current password
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Senha atual incorreta" });
+      }
+      
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      
+      // Update password
+      await storage.updateUser(user.id, { password: hashedPassword });
+      
+      return res.json({ message: "Senha alterada com sucesso" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      return res.status(500).json({ message: "Falha ao alterar senha" });
+    }
+  });
+  
+  // User addresses
+  
+  // Get all user addresses
+  app.get("/api/user/addresses", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const addresses = await storage.getUserAddresses(user.id);
+      return res.json(addresses);
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      return res.status(500).json({ message: "Falha ao buscar endereços" });
+    }
+  });
+  
+  // Create a new address
+  app.post("/api/user/addresses", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const addressData = insertAddressSchema.parse({
+        ...req.body,
+        userId: user.id
+      });
+      
+      const address = await storage.createAddress(addressData);
+      return res.status(201).json(address);
+    } catch (error) {
+      console.error("Error creating address:", error);
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      return res.status(500).json({ message: "Falha ao criar endereço" });
+    }
+  });
+  
+  // Update an address
+  app.put("/api/user/addresses/:id", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const addressId = parseInt(req.params.id);
+      
+      // Check if address exists and belongs to user
+      const address = await storage.getAddress(addressId);
+      if (!address) {
+        return res.status(404).json({ message: "Endereço não encontrado" });
+      }
+      
+      if (address.userId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      // Update address
+      const updatedAddress = await storage.updateAddress(addressId, req.body);
+      return res.json(updatedAddress);
+    } catch (error) {
+      console.error("Error updating address:", error);
+      return res.status(500).json({ message: "Falha ao atualizar endereço" });
+    }
+  });
+  
+  // Delete an address
+  app.delete("/api/user/addresses/:id", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const addressId = parseInt(req.params.id);
+      
+      // Check if address exists and belongs to user
+      const address = await storage.getAddress(addressId);
+      if (!address) {
+        return res.status(404).json({ message: "Endereço não encontrado" });
+      }
+      
+      if (address.userId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      // Delete address
+      await storage.deleteAddress(addressId);
+      return res.json({ message: "Endereço excluído com sucesso" });
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      return res.status(500).json({ message: "Falha ao excluir endereço" });
+    }
+  });
+  
+  // Set default address
+  app.post("/api/user/addresses/:id/default", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const addressId = parseInt(req.params.id);
+      
+      // Check if address exists and belongs to user
+      const address = await storage.getAddress(addressId);
+      if (!address) {
+        return res.status(404).json({ message: "Endereço não encontrado" });
+      }
+      
+      if (address.userId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      // Set as default
+      await storage.setDefaultAddress(user.id, addressId);
+      
+      // Get updated addresses
+      const addresses = await storage.getUserAddresses(user.id);
+      return res.json(addresses);
+    } catch (error) {
+      console.error("Error setting default address:", error);
+      return res.status(500).json({ message: "Falha ao definir endereço padrão" });
+    }
+  });
+  
+  // User orders
+  
+  // Get all user orders
+  app.get("/api/user/orders", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const orders = await storage.getUserOrders(user.id);
+      
+      // Get items for each order
+      const ordersWithItems = await Promise.all(
+        orders.map(async (order) => {
+          const items = await storage.getOrderItems(order.id);
+          return { ...order, items };
+        })
+      );
+      
+      return res.json(ordersWithItems);
+    } catch (error) {
+      console.error("Error fetching user orders:", error);
+      return res.status(500).json({ message: "Falha ao buscar pedidos" });
+    }
+  });
+  
+  // User wishlist
+  
+  // Get user wishlist
+  app.get("/api/user/wishlist", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const wishlistItems = await storage.getUserWishlist(user.id);
+      
+      // Get product details for each wishlist item
+      const wishlistWithProducts = await Promise.all(
+        wishlistItems.map(async (item) => {
+          const product = await storage.getProductById(item.productId);
+          const images = product ? await storage.getProductImages(product.id) : [];
+          return {
+            ...item,
+            product: product ? { ...product, images } : null
+          };
+        })
+      );
+      
+      return res.json(wishlistWithProducts);
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      return res.status(500).json({ message: "Falha ao buscar lista de desejos" });
+    }
+  });
+  
+  // Add product to wishlist
+  app.post("/api/user/wishlist", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const { productId } = req.body;
+      
+      if (!productId) {
+        return res.status(400).json({ message: "ID do produto é obrigatório" });
+      }
+      
+      // Check if product exists
+      const product = await storage.getProductById(parseInt(productId));
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      // Add to wishlist
+      await storage.addToWishlist({
+        userId: user.id,
+        productId: parseInt(productId)
+      });
+      
+      return res.status(201).json({ message: "Produto adicionado à lista de desejos" });
+    } catch (error) {
+      console.error("Error adding to wishlist:", error);
+      return res.status(500).json({ message: "Falha ao adicionar à lista de desejos" });
+    }
+  });
+  
+  // Remove product from wishlist
+  app.delete("/api/user/wishlist/:productId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const productId = parseInt(req.params.productId);
+      
+      // Remove from wishlist
+      await storage.removeFromWishlist(user.id, productId);
+      
+      return res.json({ message: "Produto removido da lista de desejos" });
+    } catch (error) {
+      console.error("Error removing from wishlist:", error);
+      return res.status(500).json({ message: "Falha ao remover da lista de desejos" });
+    }
+  });
+  
+  // Check if product is in wishlist
+  app.get("/api/user/wishlist/:productId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const productId = parseInt(req.params.productId);
+      
+      const isInWishlist = await storage.isInWishlist(user.id, productId);
+      
+      return res.json({ isInWishlist });
+    } catch (error) {
+      console.error("Error checking wishlist:", error);
+      return res.status(500).json({ message: "Falha ao verificar lista de desejos" });
+    }
+  });
+  
+  // Product reviews
+  
+  // Get reviews for a product
+  app.get("/api/products/:id/reviews", async (req: Request, res: Response) => {
+    try {
+      const productId = parseInt(req.params.id);
+      
+      // Check if product exists
+      const product = await storage.getProductById(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      const reviews = await storage.getProductReviews(productId);
+      
+      // Get user details for each review
+      const reviewsWithUser = await Promise.all(
+        reviews.map(async (review) => {
+          const user = await storage.getUser(review.userId);
+          return {
+            ...review,
+            user: user ? { id: user.id, name: user.name } : null
+          };
+        })
+      );
+      
+      return res.json(reviewsWithUser);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      return res.status(500).json({ message: "Falha ao buscar avaliações" });
+    }
+  });
+  
+  // Create a review for a product
+  app.post("/api/products/:id/reviews", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const productId = parseInt(req.params.id);
+      
+      // Check if product exists
+      const product = await storage.getProductById(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      // Check if user has ordered this product
+      const canReview = await storage.canReviewProduct(user.id, productId);
+      if (!canReview) {
+        return res.status(403).json({ message: "Você precisa comprar este produto antes de avaliá-lo" });
+      }
+      
+      // Create review
+      const { rating, comment, title } = req.body;
+      
+      if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Avaliação deve ser entre 1 e 5" });
+      }
+      
+      // Find the user's order containing this product
+      const orders = await storage.getUserOrders(user.id);
+      let orderId = null;
+      
+      for (const order of orders) {
+        const items = await storage.getOrderItems(order.id);
+        if (items.some(item => item.productId === productId)) {
+          orderId = order.id;
+          break;
+        }
+      }
+      
+      if (!orderId) {
+        return res.status(403).json({ message: "Você precisa comprar este produto antes de avaliá-lo" });
+      }
+      
+      const review = await storage.createReview({
+        userId: user.id,
+        productId,
+        orderId,
+        rating,
+        comment: comment || null,
+        title: title || null,
+        isVerified: true
+      });
+      
+      return res.status(201).json(review);
+    } catch (error) {
+      console.error("Error creating review:", error);
+      return res.status(500).json({ message: "Falha ao criar avaliação" });
+    }
+  });
+  
+  // Get user's reviews
+  app.get("/api/user/reviews", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const reviews = await storage.getUserReviews(user.id);
+      
+      // Get product details for each review
+      const reviewsWithProducts = await Promise.all(
+        reviews.map(async (review) => {
+          const product = await storage.getProductById(review.productId);
+          return {
+            ...review,
+            product: product ? { id: product.id, name: product.name, imageUrl: product.imageUrl } : null
+          };
+        })
+      );
+      
+      return res.json(reviewsWithProducts);
+    } catch (error) {
+      console.error("Error fetching user reviews:", error);
+      return res.status(500).json({ message: "Falha ao buscar avaliações" });
+    }
+  });
+  
+  // User notifications
+  
+  // Get user notifications
+  app.get("/api/user/notifications", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const notifications = await storage.getUserNotifications(user.id);
+      return res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      return res.status(500).json({ message: "Falha ao buscar notificações" });
+    }
+  });
+  
+  // Mark notification as read
+  app.put("/api/user/notifications/:id/read", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      await storage.markNotificationAsRead(notificationId);
+      return res.json({ message: "Notificação marcada como lida" });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      return res.status(500).json({ message: "Falha ao marcar notificação como lida" });
+    }
+  });
+  
+  // Mark all notifications as read
+  app.put("/api/user/notifications/read-all", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      await storage.markAllNotificationsAsRead(user.id);
+      return res.json({ message: "Todas as notificações marcadas como lidas" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      return res.status(500).json({ message: "Falha ao marcar todas as notificações como lidas" });
+    }
+  });
+  
+  // Advanced product search
+  app.get("/api/products/search/advanced", async (req: Request, res: Response) => {
+    try {
+      const query = req.query.q as string;
+      const categoryId = req.query.category ? parseInt(req.query.category as string) : undefined;
+      const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined;
+      const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined;
+      const sort = req.query.sort as string;
+      
+      const products = await storage.searchProductsAdvanced({
+        query,
+        categoryId,
+        minPrice,
+        maxPrice,
+        sort
+      });
+      
+      return res.json(products);
+    } catch (error) {
+      console.error("Error searching products:", error);
+      return res.status(500).json({ message: "Falha ao buscar produtos" });
+    }
+  });
   
   // Get all categories
   app.get("/api/categories", async (_req: Request, res: Response) => {

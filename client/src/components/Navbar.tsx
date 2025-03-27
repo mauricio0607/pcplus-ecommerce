@@ -1,12 +1,30 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/hooks/use-auth";
 import Cart from "@/components/Cart";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { 
+  User, 
+  LogOut, 
+  ShoppingBag, 
+  Heart, 
+  Settings, 
+  LogIn
+} from "lucide-react";
 
 export default function Navbar() {
   const { isCartOpen, toggleCart, getItemsCount } = useCart();
+  const { user, logoutMutation } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -94,6 +112,8 @@ export default function Navbar() {
                   </svg>
                 </form>
               </div>
+              
+              {/* Cart button */}
               <button
                 onClick={toggleCart}
                 className="relative"
@@ -119,6 +139,69 @@ export default function Navbar() {
                   </span>
                 )}
               </button>
+              
+              {/* User profile or login */}
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center text-sm font-medium rounded-full focus:outline-none focus:ring-2 focus:ring-primary" aria-label="User menu">
+                      <Avatar className="h-8 w-8 bg-primary text-white">
+                        <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="flex items-center justify-start gap-2 p-2">
+                      <Avatar className="h-8 w-8 bg-primary text-white">
+                        <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium">{user.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <Link href="/profile">
+                      <DropdownMenuItem>
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Meu Perfil</span>
+                      </DropdownMenuItem>
+                    </Link>
+                    <Link href="/orders">
+                      <DropdownMenuItem>
+                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        <span>Meus Pedidos</span>
+                      </DropdownMenuItem>
+                    </Link>
+                    <Link href="/wishlist">
+                      <DropdownMenuItem>
+                        <Heart className="mr-2 h-4 w-4" />
+                        <span>Lista de Desejos</span>
+                      </DropdownMenuItem>
+                    </Link>
+                    <Link href="/settings">
+                      <DropdownMenuItem>
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Configurações</span>
+                      </DropdownMenuItem>
+                    </Link>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>{logoutMutation.isPending ? "Saindo..." : "Sair"}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link href="/auth">
+                  <Button variant="ghost" size="sm" className="hidden md:flex gap-1 items-center">
+                    <LogIn className="h-4 w-4 mr-1" />
+                    Entrar
+                  </Button>
+                </Link>
+              )}
+              
+              {/* Mobile menu button */}
               <button
                 className="md:hidden"
                 onClick={toggleMobileMenu}
@@ -159,7 +242,40 @@ export default function Navbar() {
               <Link href="/contact" className="block py-2 text-neutral-text hover:text-primary">
                 Contato
               </Link>
-              <div className="py-2">
+              
+              {/* User Authentication Links (Mobile) */}
+              {user ? (
+                <>
+                  <div className="py-2 border-t border-gray-100 mt-2">
+                    <div className="font-medium py-2">Minha Conta</div>
+                    <Link href="/profile" className="block pl-4 py-1 text-neutral-text hover:text-primary">
+                      Meu Perfil
+                    </Link>
+                    <Link href="/orders" className="block pl-4 py-1 text-neutral-text hover:text-primary">
+                      Meus Pedidos
+                    </Link>
+                    <Link href="/wishlist" className="block pl-4 py-1 text-neutral-text hover:text-primary">
+                      Lista de Desejos
+                    </Link>
+                    <Link href="/settings" className="block pl-4 py-1 text-neutral-text hover:text-primary">
+                      Configurações
+                    </Link>
+                    <button 
+                      onClick={() => logoutMutation.mutate()} 
+                      disabled={logoutMutation.isPending}
+                      className="block pl-4 py-1 text-red-500 hover:text-red-700 w-full text-left"
+                    >
+                      {logoutMutation.isPending ? "Saindo..." : "Sair"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <Link href="/auth" className="block py-2 text-primary font-medium hover:text-primary-dark">
+                  Entrar / Cadastrar
+                </Link>
+              )}
+              
+              <div className="py-2 border-t border-gray-100 mt-2">
                 <div className="font-medium py-2">Categorias</div>
                 <Link href="/?category=notebooks" className="block pl-4 py-1 text-neutral-text hover:text-primary">
                   Notebooks
