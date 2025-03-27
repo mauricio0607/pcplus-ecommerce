@@ -6,6 +6,7 @@ import { useCart } from "@/context/CartContext";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import ProductCard from "@/components/ProductCard";
+import ProductReviews from "@/components/ProductReviews";
 
 type ProductResponse = Product & { images: ProductImage[] };
 
@@ -251,6 +252,9 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Product Reviews */}
+      <ProductReviews productId={product.id} />
 
       {/* Similar Products */}
       <section className="mt-16">

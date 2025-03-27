@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import { 
   Card, 
   CardContent, 
@@ -21,7 +23,8 @@ import {
   ShieldCheck, 
   Bell, 
   Loader2, 
-  SaveIcon
+  SaveIcon,
+  Star
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -103,6 +106,10 @@ export default function ProfilePage() {
                 <TabsTrigger value="wishlist" className="w-full justify-start">
                   <Heart className="h-4 w-4 mr-2" />
                   Lista de Desejos
+                </TabsTrigger>
+                <TabsTrigger value="reviews" className="w-full justify-start">
+                  <Star className="h-4 w-4 mr-2" />
+                  Minhas Avaliações
                 </TabsTrigger>
                 <TabsTrigger value="addresses" className="w-full justify-start">
                   <MapPin className="h-4 w-4 mr-2" />
@@ -292,6 +299,107 @@ export default function ProfilePage() {
                     </Card>
                   </div>
                 </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="reviews">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Minhas Avaliações</CardTitle>
+                  <CardDescription>
+                    Avaliações que você fez dos produtos comprados
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const { data: reviews = [], isLoading, error } = useQuery<any[]>({
+                      queryKey: ["/api/user/reviews"],
+                      enabled: !!user,
+                    });
+
+                    if (isLoading) {
+                      return (
+                        <div className="flex justify-center p-6">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                      );
+                    }
+
+                    if (error) {
+                      return (
+                        <div className="p-4 border border-red-300 bg-red-50 rounded-lg">
+                          <p className="text-red-600">Erro ao carregar suas avaliações. Por favor, tente novamente mais tarde.</p>
+                        </div>
+                      );
+                    }
+
+                    if (reviews.length === 0) {
+                      return (
+                        <div className="p-8 text-center border rounded-lg bg-gray-50">
+                          <h3 className="text-lg font-medium mb-2">Você ainda não avaliou nenhum produto</h3>
+                          <p className="text-gray-600 mb-4">Depois de comprar e receber um produto, você poderá avaliá-lo.</p>
+                          <Button asChild className="bg-primary hover:bg-primary/90">
+                            <Link to="/">Continuar comprando</Link>
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {reviews.map((review: any) => (
+                          <Card key={review.id}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start pt-2">
+                                {review.product?.imageUrl && (
+                                  <Link to={`/product/${review.productId}`}>
+                                    <img 
+                                      src={review.product.imageUrl} 
+                                      alt={review.product?.name || "Produto"} 
+                                      className="w-20 h-20 object-cover rounded-md mr-4"
+                                    />
+                                  </Link>
+                                )}
+                                <div className="flex-grow">
+                                  <Link to={`/product/${review.productId}`}>
+                                    <h3 className="font-semibold text-lg hover:text-primary">
+                                      {review.product?.name || "Produto"}
+                                    </h3>
+                                  </Link>
+                                  <div className="flex text-yellow-400 mt-1">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                      <Star 
+                                        key={i} 
+                                        className={`h-4 w-4 ${i < review.rating ? "fill-current" : "fill-none"}`} 
+                                      />
+                                    ))}
+                                    <span className="text-gray-600 text-sm ml-2">{review.rating}/5</span>
+                                  </div>
+                                  
+                                  <h4 className="font-medium mt-2">{review.title || "Sem título"}</h4>
+                                  <p className="text-gray-600 mt-1">{review.comment}</p>
+                                  <p className="text-sm text-gray-400 mt-2">
+                                    Avaliado em {new Date(review.createdAt).toLocaleDateString('pt-BR')}
+                                  </p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => window.location.href = '/user-reviews'}
+                  >
+                    <Star className="mr-2 h-4 w-4" /> 
+                    Ver todas as avaliações
+                  </Button>
+                </CardFooter>
               </Card>
             </TabsContent>
             

@@ -535,6 +535,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Check if user can review a product
+  app.get("/api/products/:id/can-review", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      const productId = parseInt(req.params.id);
+      
+      // Check if product exists
+      const product = await storage.getProductById(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      // Check if user can review this product
+      const canReview = await storage.canReviewProduct(user.id, productId);
+      return res.json(canReview);
+    } catch (error) {
+      console.error("Error checking if user can review:", error);
+      return res.status(500).json({ message: "Falha ao verificar permissão de avaliação" });
+    }
+  });
+  
   // Create a review for a product
   app.post("/api/products/:id/reviews", authMiddleware, async (req: Request, res: Response) => {
     try {

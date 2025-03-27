@@ -21,6 +21,7 @@ import ContactPage from "@/pages/ContactPage";
 import SupportPage from "@/pages/SupportPage";
 import OrdersPage from "@/pages/OrdersPage";
 import WishlistPage from "@/pages/WishlistPage";
+import UserReviewsPage from "@/pages/UserReviewsPage";
 import PolicyPage from "@/pages/PolicyPage";
 import PaymentMethodsPage from "@/pages/PaymentMethodsPage";
 import ShippingPage from "@/pages/ShippingPage";
@@ -74,6 +75,7 @@ function Router() {
       {/* Páginas protegidas do usuário */}
       <ProtectedRoute path="/orders" component={OrdersPage} />
       <ProtectedRoute path="/wishlist" component={WishlistPage} />
+      <ProtectedRoute path="/reviews" component={UserReviewsPage} />
       
       <Route component={NotFound} />
     </Switch>

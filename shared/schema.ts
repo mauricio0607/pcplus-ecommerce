@@ -64,12 +64,16 @@ export const productImages = pgTable("product_images", {
   productId: integer("product_id").notNull(),
   imageUrl: text("image_url").notNull(),
   isPrimary: boolean("is_primary").default(false),
+  isRotationImage: boolean("is_rotation_image").default(false),
+  rotationOrder: integer("rotation_order"),
 });
 
 export const insertProductImageSchema = createInsertSchema(productImages).pick({
   productId: true,
   imageUrl: true,
   isPrimary: true,
+  isRotationImage: true,
+  rotationOrder: true,
 });
 
 export type InsertProductImage = z.infer<typeof insertProductImageSchema>;
