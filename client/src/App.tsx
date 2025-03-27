@@ -18,6 +18,9 @@ import { AdminProtectedRoute } from "@/lib/admin-protected-route";
 import Dashboard from "@/pages/admin/Dashboard";
 import Products from "@/pages/admin/Products";
 import Categories from "@/pages/admin/Categories";
+import Orders from "@/pages/admin/Orders";
+import Users from "@/pages/admin/Users";
+import Settings from "@/pages/admin/Settings";
 
 function Router() {
   const [location] = useLocation();
@@ -30,6 +33,9 @@ function Router() {
         <AdminProtectedRoute path="/admin" component={Dashboard} />
         <AdminProtectedRoute path="/admin/products" component={Products} />
         <AdminProtectedRoute path="/admin/categories" component={Categories} />
+        <AdminProtectedRoute path="/admin/orders" component={Orders} />
+        <AdminProtectedRoute path="/admin/users" component={Users} />
+        <AdminProtectedRoute path="/admin/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     );
