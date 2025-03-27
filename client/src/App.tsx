@@ -7,6 +7,7 @@ import Home from "@/pages/Home";
 import ProductDetail from "@/pages/ProductDetail";
 import Checkout from "@/pages/Checkout";
 import AuthPage from "@/pages/auth-page";
+import ProfilePage from "@/pages/ProfilePage";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/context/CartContext";
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/product/:slug" component={ProductDetail} />
       <ProtectedRoute path="/checkout" component={Checkout} />
+      <ProtectedRoute path="/profile" component={ProfilePage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
