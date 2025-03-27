@@ -82,18 +82,18 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         <div className="h-full flex flex-col">
           <div className="flex items-center h-16 px-4 border-b">
             <Link href="/">
-              <a className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 cursor-pointer">
                 <span className="font-bold text-xl text-primary">PC+</span>
                 <span className="font-bold text-xl">Admin</span>
-              </a>
+              </div>
             </Link>
           </div>
           
           <nav className="space-y-1 px-2 py-4 flex-1 overflow-y-auto">
             {sidebarItems.map((item) => (
               <Link key={item.href} href={item.href}>
-                <a
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
+                <div
+                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md cursor-pointer ${
                     location === item.href
                       ? "bg-primary text-white"
                       : "text-gray-700 hover:bg-gray-100"
@@ -101,7 +101,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 >
                   {item.icon}
                   <span className="ml-3">{item.label}</span>
-                </a>
+                </div>
               </Link>
             ))}
           </nav>
@@ -164,12 +164,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
                       <Link href="/profile">
-                        <a className="cursor-pointer">Meu Perfil</a>
+                        <div className="cursor-pointer w-full">Meu Perfil</div>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/admin/settings">
-                        <a className="cursor-pointer">Configurações</a>
+                        <div className="cursor-pointer w-full">Configurações</div>
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
