@@ -194,13 +194,21 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
     const createdAt = new Date();
+    
+    // Garantir que todos os campos opcionais tenham valores padrão
     const user: User = { 
-      ...insertUser, 
-      id, 
+      id,
+      email: insertUser.email,
+      password: insertUser.password,
+      name: insertUser.name,
+      phone: insertUser.phone ?? null,
+      document: insertUser.document ?? null,
+      role: insertUser.role ?? null,
       createdAt, 
       lastLogin: null, 
       isActive: true 
     };
+    
     this.users.set(id, user);
     return user;
   }
@@ -734,27 +742,27 @@ export class MemStorage implements IStorage {
       {
         name: "Computadores",
         slug: "computadores",
-        description: "Desktops, All-in-Ones e servidores para todos os perfis de usuários."
+        icon: "computer"
       },
       {
         name: "Notebooks",
         slug: "notebooks",
-        description: "Notebooks, ultrabooks e conversíveis para mobilidade e produtividade."
+        icon: "laptop"
       },
       {
         name: "Periféricos",
         slug: "perifericos",
-        description: "Teclados, mouses, headsets e outros acessórios para melhorar sua experiência."
+        icon: "mouse"
       },
       {
         name: "Hardware",
         slug: "hardware",
-        description: "Componentes como processadores, placas-mãe, memórias e placas de vídeo."
+        icon: "cpu"
       },
       {
         name: "Redes",
         slug: "redes",
-        description: "Roteadores, switches, access points e todos os equipamentos para sua rede."
+        icon: "wifi"
       }
     ];
     
