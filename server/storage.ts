@@ -107,10 +107,10 @@ export interface IStorage {
   updateMenuItems(items: MenuItem[]): Promise<boolean>;
 }
 
-import session from "express-session";
+import * as expressSession from "express-session";
 import createMemoryStore from "memorystore";
 
-const MemoryStore = createMemoryStore(session);
+const MemoryStore = createMemoryStore(expressSession);
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
@@ -885,25 +885,51 @@ export class MemStorage implements IStorage {
   }
 }
 
-import pkg from 'pg';
-const { Pool } = pkg;
-import session from "express-session";
+import pg from 'pg';
+const { Pool, Pool: PgPool } = pg;
+import * as expressSession from "express-session";
 import connectPg from "connect-pg-simple";
 
-const PostgresSessionStore = connectPg(session);
+// Importando configurações (se config.js existir na raiz)
+let config;
+try {
+  config = require('../config');
+} catch (e) {
+  config = {
+    database: {
+      url: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_SSL === 'true',
+      connectionPoolSize: parseInt(process.env.DB_POOL_SIZE || '10', 10),
+    }
+  };
+}
+
+const PostgresSessionStore = connectPg(expressSession);
 
 export class DatabaseStorage implements IStorage {
-  private pool: Pool;
-  public sessionStore: session.SessionStore;
+  private pool: PgPool;
+  public sessionStore: expressSession.Store;
 
   constructor() {
-    this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL
+    // Configuração mais robusta do pool de conexões
+    this.pool = new PgPool({
+      connectionString: process.env.DATABASE_URL || config.database.url,
+      ssl: (process.env.DATABASE_SSL === 'true' || config.database.ssl) ? 
+        { rejectUnauthorized: false } : undefined,
+      max: parseInt(process.env.DB_POOL_SIZE || '10', 10) || config.database.connectionPoolSize,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+    
+    // Adiciona log de erro para ajudar na depuração
+    this.pool.on('error', (err) => {
+      console.error('Erro inesperado no cliente de pool PostgreSQL', err);
     });
     
     this.sessionStore = new PostgresSessionStore({
       pool: this.pool,
-      createTableIfMissing: true
+      createTableIfMissing: true,
+      tableName: 'sessions'
     });
     
     this.setupTables().catch(err => {
@@ -1807,7 +1833,44 @@ export class DatabaseStorage implements IStorage {
 }
 
 // Usar DatabaseStorage para persistência real dos dados
-export const storage = new DatabaseStorage();
+// Importação da implementação de armazenamento do Supabase
+import { SupabaseStorage } from './supabase-storage';
+
+// Determinar qual implementação de armazenamento usar
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'postgres'; // 'postgres', 'memory', 'supabase'
+
+let storageInstance: IStorage;
+
+try {
+  switch (STORAGE_TYPE.toLowerCase()) {
+    case 'memory':
+      console.log('Usando armazenamento em memória');
+      storageInstance = new MemStorage();
+      break;
+    case 'supabase':
+      // Verificar se as variáveis para Supabase estão configuradas
+      if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+        console.warn('AVISO: Variáveis de ambiente SUPABASE_URL e SUPABASE_ANON_KEY não estão configuradas.');
+        console.warn('Usando armazenamento PostgreSQL como fallback.');
+        storageInstance = new DatabaseStorage();
+      } else {
+        console.log('Usando armazenamento Supabase');
+        storageInstance = new SupabaseStorage();
+      }
+      break;
+    case 'postgres':
+    default:
+      console.log('Usando armazenamento PostgreSQL');
+      storageInstance = new DatabaseStorage();
+      break;
+  }
+} catch (error) {
+  console.error('Erro ao inicializar o armazenamento:', error);
+  console.log('Usando armazenamento em memória como fallback devido a erro');
+  storageInstance = new MemStorage();
+}
+
+export const storage = storageInstance;
 
 // Implementação MemStorage dos métodos para configurações do site
 MemStorage.prototype.getSiteSettings = async function(): Promise<SiteSettings | null> {
